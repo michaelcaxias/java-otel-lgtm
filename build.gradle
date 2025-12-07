@@ -39,6 +39,10 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-stream-binder-rabbit'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
+    // AOP Support
+    implementation 'org.springframework:spring-aop'
+    implementation 'org.aspectj:aspectjweaver:1.9.22.1'
+
     // OpenTelemetry Instrumentation Annotations for @WithSpan
     implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.10.0'
 

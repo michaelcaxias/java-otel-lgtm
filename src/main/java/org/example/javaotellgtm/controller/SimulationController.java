@@ -1,8 +1,9 @@
 package org.example.javaotellgtm.controller;
 
-import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
 import org.example.javaotellgtm.model.Order;
 import org.example.javaotellgtm.model.OrderStatus;
@@ -36,11 +37,8 @@ public class SimulationController {
     };
 
     @PostMapping("/create-sample-order")
-    @Observed(
-        name = "simulation.create-sample-order",
-        contextualName = "create-sample-order",
-        lowCardinalityKeyValues = {"operation", "simulation"}
-    )
+    @Traced(value = "create-sample-order", kind = SpanKind.SERVER,
+            attributes = {"operation:simulation"})
     public ResponseEntity<Order> createSampleOrder() {
         log.info("Creating sample order");
 
@@ -70,16 +68,18 @@ public class SimulationController {
                 .paymentMethod("CREDIT_CARD")
                 .build();
 
-        Order order = orderService.createOrder(request);
+        Order order = orderService.createOrder(
+                customerId,
+                customerName,
+                customerEmail,
+                request
+        );
         return ResponseEntity.ok(order);
     }
 
     @PostMapping("/simulate-order-flow/{orderId}")
-    @Observed(
-        name = "simulation.order-flow",
-        contextualName = "simulate-order-flow",
-        lowCardinalityKeyValues = {"operation", "simulation"}
-    )
+    @Traced(value = "simulate-order-flow", kind = SpanKind.SERVER,
+            attributes = {"operation:simulation"})
     public ResponseEntity<Map<String, String>> simulateOrderFlow(@PathVariable String orderId) {
         log.info("Starting order flow simulation for order: {}", orderId);
 
@@ -122,11 +122,8 @@ public class SimulationController {
     }
 
     @PostMapping("/generate-traffic")
-    @Observed(
-        name = "simulation.generate-traffic",
-        contextualName = "generate-traffic",
-        lowCardinalityKeyValues = {"operation", "simulation"}
-    )
+    @Traced(value = "generate-traffic", kind = SpanKind.SERVER,
+            attributes = {"operation:simulation"})
     public ResponseEntity<Map<String, Object>> generateTraffic(
             @RequestParam(defaultValue = "5") int orderCount) {
         log.info("Generating traffic with {} orders", orderCount);

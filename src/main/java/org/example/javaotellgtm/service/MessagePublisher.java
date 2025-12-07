@@ -2,10 +2,10 @@ package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.javaotellgtm.aop.SpanAttribute;
+import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.config.RabbitMQConfig;
 import org.example.javaotellgtm.dto.OrderEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -18,12 +18,11 @@ public class MessagePublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    @WithSpan(value = "publish-order-event", kind = SpanKind.PRODUCER)
+    @Traced(value = "publish-order-event", kind = SpanKind.PRODUCER,
+            attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
     public void publishOrderEvent(OrderEvent event) {
         Span span = Span.current();
-        span.setAttribute("messaging.system", "rabbitmq");
         span.setAttribute("messaging.destination", RabbitMQConfig.ORDER_EXCHANGE);
-        span.setAttribute("messaging.destination_kind", "exchange");
         span.setAttribute("event.type", event.getEventType().name());
         span.setAttribute("order.id", event.getOrderId());
         span.setAttribute("customer.id", event.getCustomerId());
@@ -46,16 +45,15 @@ public class MessagePublisher {
         log.info("Event published successfully");
     }
 
-    @WithSpan(value = "publish-notification", kind = SpanKind.PRODUCER)
+    @Traced(value = "publish-notification", kind = SpanKind.PRODUCER,
+            attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
     public void publishNotification(
             @SpanAttribute("notification.email") String email,
             @SpanAttribute("notification.subject") String subject,
             String message) {
 
         Span span = Span.current();
-        span.setAttribute("messaging.system", "rabbitmq");
         span.setAttribute("messaging.destination", RabbitMQConfig.NOTIFICATION_EXCHANGE);
-        span.setAttribute("messaging.destination_kind", "exchange");
         span.setAttribute("messaging.routing_key", RabbitMQConfig.NOTIFICATION_EMAIL_KEY);
 
         log.info("Publishing notification to email: {}", email);
