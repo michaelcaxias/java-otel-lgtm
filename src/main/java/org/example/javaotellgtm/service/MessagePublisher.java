@@ -1,7 +1,6 @@
 package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,12 +22,10 @@ public class MessagePublisher {
             attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
     public void publishOrderEvent(OrderEvent event) {
         Span span = Span.current();
-        SpanContext spanContext = span.getSpanContext();
 
-        // ✅ Capturar contexto do span atual para criar link no consumer
-        event.setTraceId(spanContext.getTraceId());
-        event.setSpanId(spanContext.getSpanId());
-        event.setTraceFlags(spanContext.getTraceFlags().asHex());
+        // ✅ Context propagation é AUTOMÁTICA!
+        // Spring Boot OpenTelemetry injeta headers "traceparent" e "tracestate"
+        // automaticamente na mensagem RabbitMQ
 
         span.setAttribute("messaging.destination", RabbitMQConfig.ORDER_EXCHANGE);
         span.setAttribute("event.type", event.getEventType().name());
@@ -38,12 +35,12 @@ public class MessagePublisher {
         String routingKey = determineRoutingKey(event.getEventType());
         span.setAttribute("messaging.routing_key", routingKey);
 
-        log.info("Publishing event {} for order {} with routing key {} (traceId: {}, spanId: {})",
-                event.getEventType(), event.getOrderId(), routingKey,
-                event.getTraceId(), event.getSpanId());
+        log.info("Publishing event {} for order {} with routing key {}",
+                event.getEventType(), event.getOrderId(), routingKey);
 
-        span.addEvent("Publishing message to RabbitMQ with trace context");
+        span.addEvent("Publishing message to RabbitMQ");
 
+        // ✅ RabbitTemplate automaticamente propaga o contexto nos headers!
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ORDER_EXCHANGE,
                 routingKey,
@@ -51,7 +48,7 @@ public class MessagePublisher {
         );
 
         span.addEvent("Message published successfully");
-        log.info("Event published successfully with trace link");
+        log.info("Event published successfully with automatic context propagation");
     }
 
     @Traced(value = "publish-notification", kind = SpanKind.PRODUCER,

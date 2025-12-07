@@ -110,11 +110,19 @@ public class RabbitMQConfig {
         return new Jackson2JsonMessageConverter(objectMapper);
     }
 
+    /**
+     * RabbitTemplate com propagação automática de contexto OpenTelemetry.
+     * O Spring Boot OpenTelemetry automaticamente injeta interceptors para
+     * propagar o trace context através das mensagens RabbitMQ.
+     */
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,
                                         MessageConverter messageConverter) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(messageConverter);
+        // ✅ Context propagation é AUTOMÁTICO via Spring Boot OpenTelemetry!
+        // Headers W3C Trace Context ("traceparent" e "tracestate") são
+        // injetados automaticamente nas mensagens e extraídos nos consumers
         return rabbitTemplate;
     }
 }

@@ -24,10 +24,9 @@ public class OrderEvent implements Serializable {
     private EventType eventType;
     private LocalDateTime timestamp;
 
-    // OpenTelemetry Span Link fields
-    private String traceId;      // TraceId do span que criou o evento
-    private String spanId;       // SpanId do span que criou o evento
-    private String traceFlags;   // Flags do trace (sampling, etc)
+    // ✅ Context propagation é automática via Spring Boot OpenTelemetry!
+    // Não precisamos mais de campos traceId/spanId - o contexto é propagado
+    // automaticamente através dos headers "traceparent" e "tracestate"
 
     public enum EventType {
         ORDER_CREATED,

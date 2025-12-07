@@ -325,27 +325,30 @@ public Order createOrder(
 - ✅ **Span Links automáticos** para rastreabilidade ponta a ponta
 - ✅ **Totalmente compatível** com OpenTelemetry nativo
 
-### Span Links - Rastreabilidade Distribuída
+### Context Propagation - Trace Único
 
-A aplicação implementa **Span Links** para conectar traces através de boundaries assíncronos:
+A aplicação usa **propagação automática de contexto** para criar **UM único trace** ponta a ponta:
 
 ```
-Producer (Trace A):                Consumer (Trace B):
-├─ create-order                    └─ handle-order-created
-   └─ publish-event                   🔗 LINK → publish-event
-      [captura traceId/spanId]           (rastreável no Grafana!)
+Trace Único (HTTP → RabbitMQ → Consumers):
+├─ create-order-endpoint (HTTP)
+│  └─ publish-order-event (PRODUCER)
+└─ handle-order-created (CONSUMER)  ← Mesmo trace!
+   └─ send-email (PRODUCER)
+      └─ handle-notification (CONSUMER)  ← Ainda mesmo trace!
 ```
 
-- ✅ Rastreamento completo do producer ao consumer
-- ✅ Detecção automática de OrderEvent
-- ✅ Links visíveis no Grafana Tempo
-- ✅ Zero configuração manual necessária
+- ✅ **UM trace único** do HTTP request até último consumer
+- ✅ **Propagação automática** via headers W3C Trace Context
+- ✅ **Hierarquia completa** visível no Grafana Tempo
+- ✅ **Latência total** calculada automaticamente
+- ✅ **Zero configuração** manual necessária
 
 ### Documentação Completa
 
 - 📖 [CUSTOM_AOP_TRACING.md](CUSTOM_AOP_TRACING.md) - Guia completo da implementação AOP
 - 📊 [TRACING_EVOLUTION.md](TRACING_EVOLUTION.md) - Evolução e comparação das abordagens
-- 🔗 [SPAN_LINKS.md](SPAN_LINKS.md) - Span Links para rastreabilidade ponta a ponta
+- 🔄 [CONTEXT_PROPAGATION.md](CONTEXT_PROPAGATION.md) - Context propagation automática (trace único)
 - 🔍 [COMPARISON.md](COMPARISON.md) - Comparação detalhada entre métodos
 
 ## 📝 Licença
