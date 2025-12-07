@@ -322,12 +322,30 @@ public Order createOrder(
 - ✅ **Controle total** sobre spans e atributos
 - ✅ **Atributos estáticos** na anotação
 - ✅ **Gerenciamento automático** de exceções e status
+- ✅ **Span Links automáticos** para rastreabilidade ponta a ponta
 - ✅ **Totalmente compatível** com OpenTelemetry nativo
+
+### Span Links - Rastreabilidade Distribuída
+
+A aplicação implementa **Span Links** para conectar traces através de boundaries assíncronos:
+
+```
+Producer (Trace A):                Consumer (Trace B):
+├─ create-order                    └─ handle-order-created
+   └─ publish-event                   🔗 LINK → publish-event
+      [captura traceId/spanId]           (rastreável no Grafana!)
+```
+
+- ✅ Rastreamento completo do producer ao consumer
+- ✅ Detecção automática de OrderEvent
+- ✅ Links visíveis no Grafana Tempo
+- ✅ Zero configuração manual necessária
 
 ### Documentação Completa
 
 - 📖 [CUSTOM_AOP_TRACING.md](CUSTOM_AOP_TRACING.md) - Guia completo da implementação AOP
 - 📊 [TRACING_EVOLUTION.md](TRACING_EVOLUTION.md) - Evolução e comparação das abordagens
+- 🔗 [SPAN_LINKS.md](SPAN_LINKS.md) - Span Links para rastreabilidade ponta a ponta
 - 🔍 [COMPARISON.md](COMPARISON.md) - Comparação detalhada entre métodos
 
 ## 📝 Licença
