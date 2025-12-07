@@ -2,13 +2,29 @@ services:
   grafana-lgtm:
     image: 'grafana/otel-lgtm:latest'
     ports:
-      - '3000'
-      - '4317'
-      - '4318'
+      - '3000:3000'
+      - '4317:4317'
+      - '4318:4318'
+    environment:
+      - 'OTEL_METRIC_EXPORT_INTERVAL=1000'
+
   rabbitmq:
-    image: 'rabbitmq:latest'
+    image: 'rabbitmq:management'
     environment:
       - 'RABBITMQ_DEFAULT_PASS=secret'
       - 'RABBITMQ_DEFAULT_USER=myuser'
     ports:
-      - '5672'
+      - '5672:5672'
+      - '15672:15672'
+
+  mongodb:
+    image: 'mongo:latest'
+    ports:
+      - '27017:27017'
+    environment:
+      - 'MONGO_INITDB_DATABASE=orders_db'
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
