@@ -1,0 +1,215 @@
+### Health Check
+GET http://localhost:8080/api/orders/health
+
+### ========================================
+### SIMULATION ENDPOINTS - Para testes rápidos
+### ========================================
+
+### Criar Pedido de Exemplo (Aleatório)
+POST http://localhost:8080/api/simulation/create-sample-order
+
+### Simular Fluxo Completo do Pedido (use o ID retornado acima)
+POST http://localhost:8080/api/simulation/simulate-order-flow/COLE_O_ID_AQUI
+
+### Gerar Tráfego de Teste (5 pedidos)
+POST http://localhost:8080/api/simulation/generate-traffic?orderCount=5
+
+### Gerar Tráfego de Teste (20 pedidos)
+POST http://localhost:8080/api/simulation/generate-traffic?orderCount=20
+
+### ========================================
+### ORDER ENDPOINTS - Operações Manuais
+### ========================================
+
+### Criar Pedido Customizado
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CUST-001",
+  "customerName": "João Silva",
+  "customerEmail": "joao.silva@email.com",
+  "shippingAddress": "Rua das Flores, 123 - São Paulo, SP",
+  "paymentMethod": "CREDIT_CARD",
+  "items": [
+    {
+      "productId": "PROD-001",
+      "productName": "Notebook Dell XPS 15",
+      "quantity": 1,
+      "unitPrice": 8500.00
+    },
+    {
+      "productId": "PROD-002",
+      "productName": "Mouse Logitech MX Master 3",
+      "quantity": 1,
+      "unitPrice": 450.00
+    },
+    {
+      "productId": "PROD-003",
+      "productName": "Teclado Mecânico Keychron K2",
+      "quantity": 1,
+      "unitPrice": 650.00
+    }
+  ]
+}
+
+### Criar Pedido com Múltiplos Itens
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CUST-002",
+  "customerName": "Maria Santos",
+  "customerEmail": "maria.santos@email.com",
+  "shippingAddress": "Av. Paulista, 1000 - São Paulo, SP",
+  "paymentMethod": "PIX",
+  "items": [
+    {
+      "productId": "PROD-100",
+      "productName": "Monitor LG UltraWide 34\"",
+      "quantity": 2,
+      "unitPrice": 2300.00
+    },
+    {
+      "productId": "PROD-101",
+      "productName": "Webcam Logitech C920",
+      "quantity": 2,
+      "unitPrice": 550.00
+    },
+    {
+      "productId": "PROD-102",
+      "productName": "Headset HyperX Cloud II",
+      "quantity": 2,
+      "unitPrice": 450.00
+    }
+  ]
+}
+
+### Buscar Pedido por ID (substitua pelo ID real)
+GET http://localhost:8080/api/orders/675433f3c8b8a123456789ab
+
+### Listar Todos os Pedidos
+GET http://localhost:8080/api/orders
+
+### Listar Pedidos por Cliente
+GET http://localhost:8080/api/orders/customer/CUST-001
+
+### ========================================
+### ATUALIZAR STATUS DO PEDIDO
+### ========================================
+
+### Atualizar para PAYMENT_PROCESSING
+PATCH http://localhost:8080/api/orders/675433f3c8b8a123456789ab/status
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_PROCESSING"
+}
+
+### Atualizar para PAYMENT_CONFIRMED
+PATCH http://localhost:8080/api/orders/675433f3c8b8a123456789ab/status
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_CONFIRMED"
+}
+
+### Atualizar para PREPARING
+PATCH http://localhost:8080/api/orders/675433f3c8b8a123456789ab/status
+Content-Type: application/json
+
+{
+  "status": "PREPARING"
+}
+
+### Atualizar para SHIPPED
+PATCH http://localhost:8080/api/orders/675433f3c8b8a123456789ab/status
+Content-Type: application/json
+
+{
+  "status": "SHIPPED"
+}
+
+### Atualizar para DELIVERED
+PATCH http://localhost:8080/api/orders/675433f3c8b8a123456789ab/status
+Content-Type: application/json
+
+{
+  "status": "DELIVERED"
+}
+
+### Cancelar Pedido
+POST http://localhost:8080/api/orders/675433f3c8b8a123456789ab/cancel
+
+### ========================================
+### FLUXO COMPLETO PASSO A PASSO
+### ========================================
+### Execute em ordem para ver o fluxo completo
+
+### 1. Criar pedido
+POST http://localhost:8080/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "CUST-TESTE",
+  "customerName": "Cliente Teste",
+  "customerEmail": "teste@email.com",
+  "shippingAddress": "Rua Teste, 456",
+  "paymentMethod": "CREDIT_CARD",
+  "items": [
+    {
+      "productId": "PROD-999",
+      "productName": "Produto Teste",
+      "quantity": 1,
+      "unitPrice": 100.00
+    }
+  ]
+}
+
+### 2. Consultar pedido criado (pegue o ID do passo anterior)
+GET http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO
+
+### 3. Processar pagamento
+PATCH http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO/status
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_PROCESSING"
+}
+
+### 4. Confirmar pagamento
+PATCH http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO/status
+Content-Type: application/json
+
+{
+  "status": "PAYMENT_CONFIRMED"
+}
+
+### 5. Preparar pedido
+PATCH http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO/status
+Content-Type: application/json
+
+{
+  "status": "PREPARING"
+}
+
+### 6. Enviar pedido
+PATCH http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO/status
+Content-Type: application/json
+
+{
+  "status": "SHIPPED"
+}
+
+### 7. Marcar como entregue
+PATCH http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO/status
+Content-Type: application/json
+
+{
+  "status": "DELIVERED"
+}
+
+### 8. Verificar pedido final
+GET http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO
+
+###

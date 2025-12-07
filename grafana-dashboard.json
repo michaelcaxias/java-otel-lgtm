@@ -1,0 +1,92 @@
+{
+  "dashboard": {
+    "title": "Order Management API - Observability",
+    "tags": ["java", "opentelemetry", "rabbitmq", "orders"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Total Requests",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_requests_seconds_count[5m]))",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "title": "Request Duration (p95)",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95 latency"
+          }
+        ]
+      },
+      {
+        "title": "Orders Created",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "count(traces{service.name=\"java-otel-lgtm\", span.name=\"create-order\"})",
+            "legendFormat": "Total Orders"
+          }
+        ]
+      },
+      {
+        "title": "RabbitMQ Messages Published",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "count(traces{service.name=\"java-otel-lgtm\", span.name=\"publish-order-event\"})",
+            "legendFormat": "Messages"
+          }
+        ]
+      },
+      {
+        "title": "Request Rate by Endpoint",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_requests_seconds_count[5m])) by (uri)",
+            "legendFormat": "{{uri}}"
+          }
+        ]
+      },
+      {
+        "title": "Trace Spans Over Time",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "count(traces{service.name=\"java-otel-lgtm\"}) by (span.name)",
+            "legendFormat": "{{span.name}}"
+          }
+        ]
+      },
+      {
+        "title": "Recent Order Traces",
+        "type": "traces",
+        "gridPos": {"x": 0, "y": 12, "w": 24, "h": 12},
+        "datasource": "Tempo",
+        "targets": [
+          {
+            "query": "service.name=\"java-otel-lgtm\"",
+            "limit": 20
+          }
+        ]
+      }
+    ],
+    "refresh": "5s",
+    "time": {
+      "from": "now-30m",
+      "to": "now"
+    }
+  }
+}
