@@ -2,7 +2,9 @@ package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
+import lombok.With;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.aop.SpanAttribute;
 import org.example.javaotellgtm.aop.Traced;
@@ -111,7 +113,7 @@ public class OrderService {
         return order;
     }
 
-    @Traced(value = "list-all-orders", kind = SpanKind.INTERNAL, attributes = {"operation:read"})
+    @Traced()
     public List<Order> getAllOrders() {
         Span span = Span.current();
 

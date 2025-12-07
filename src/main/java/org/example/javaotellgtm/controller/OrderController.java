@@ -1,5 +1,6 @@
 package org.example.javaotellgtm.controller;
 
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,22 +25,23 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    @Traced(value = "create-order-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:POST", "endpoint:/api/orders"})
     public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest request) {
-        log.info("Received request to create order for customer: {}", request.getCustomerName());
+        Span span = Span.current();
+
+        span.addEvent("Received request: " + request.toString());
+
         Order order = orderService.createOrder(
                 request.getCustomerId(),
                 request.getCustomerName(),
                 request.getCustomerEmail(),
                 request
         );
+
+        span.addEvent("Response: " + order.toString());
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
 
     @GetMapping("/{orderId}")
-    @Traced(value = "get-order-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/orders/{id}"})
     public ResponseEntity<Order> getOrder(@PathVariable String orderId) {
         log.info("Received request to get order: {}", orderId);
         Order order = orderService.getOrder(orderId);
@@ -47,8 +49,6 @@ public class OrderController {
     }
 
     @GetMapping
-    @Traced(value = "get-all-orders-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/orders"})
     public ResponseEntity<List<Order>> getAllOrders() {
         log.info("Received request to get all orders");
         List<Order> orders = orderService.getAllOrders();
@@ -56,8 +56,6 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerId}")
-    @Traced(value = "get-orders-by-customer-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/orders/customer/{id}"})
     public ResponseEntity<List<Order>> getOrdersByCustomer(@PathVariable String customerId) {
         log.info("Received request to get orders for customer: {}", customerId);
         List<Order> orders = orderService.getOrdersByCustomerId(customerId);
@@ -65,8 +63,6 @@ public class OrderController {
     }
 
     @PatchMapping("/{orderId}/status")
-    @Traced(value = "update-order-status-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:PATCH", "endpoint:/api/orders/{id}/status"})
     public ResponseEntity<Order> updateOrderStatus(
             @PathVariable String orderId,
             @RequestBody Map<String, String> statusUpdate) {
@@ -79,8 +75,6 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/cancel")
-    @Traced(value = "cancel-order-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:POST", "endpoint:/api/orders/{id}/cancel"})
     public ResponseEntity<Void> cancelOrder(@PathVariable String orderId) {
         log.info("Received request to cancel order: {}", orderId);
         orderService.cancelOrder(orderId);

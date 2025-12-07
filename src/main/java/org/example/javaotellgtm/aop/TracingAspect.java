@@ -34,11 +34,12 @@ public class TracingAspect {
     @Around("@annotation(traced)")
     public Object traceMethod(ProceedingJoinPoint joinPoint, Traced traced) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        String className = signature.getDeclaringType().getSimpleName();
         Method method = signature.getMethod();
 
         // Determinar nome do span
         String spanName = traced.value().isEmpty()
-                ? method.getName()
+                ? className + "." + method.getName()
                 : traced.value();
 
         // Criar span
