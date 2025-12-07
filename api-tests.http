@@ -212,4 +212,27 @@ Content-Type: application/json
 ### 8. Verificar pedido final
 GET http://localhost:8080/api/orders/ID_DO_PEDIDO_CRIADO
 
+### ========================================
+### EXTERNAL API ENDPOINTS - Auto-Instrumentação Demo
+### ========================================
+
+### Buscar Post Enriquecido com Autor (Trace completo com múltiplas chamadas HTTP)
+### Demonstra: SERVER → INTERNAL → CLIENT (get post) → CLIENT (get user)
+GET http://localhost:8080/api/external/posts/1/enriched
+
+### Buscar Post Enriquecido - Post 5
+GET http://localhost:8080/api/external/posts/5/enriched
+
+### Listar Todos os Posts da API Externa
+GET http://localhost:8080/api/external/posts
+
+### Listar Posts de um Usuário Específico
+GET http://localhost:8080/api/external/users/1/posts
+
+### Listar Posts de outro Usuário
+GET http://localhost:8080/api/external/users/2/posts
+
+### Listar Todos os Usuários
+GET http://localhost:8080/api/external/users
+
 ###

@@ -36,11 +36,12 @@ API de gerenciamento de pedidos com Spring Boot que demonstra operações intere
 
 ### Observabilidade com OpenTelemetry
 - **AOP Customizado** - Implementação própria de tracing com `@Traced`
+- **Auto-Instrumentação** - HTTP, Feign Client, RabbitMQ, MongoDB (ver [AUTO_INSTRUMENTATION.md](AUTO_INSTRUMENTATION.md))
 - Traces distribuídos através de toda a aplicação
 - Spans customizados com tags relevantes
-- Propagação de contexto entre serviços
+- Propagação de contexto entre serviços e APIs externas
 - Integração com Grafana LGTM
-- Ver [CUSTOM_AOP_TRACING.md](CUSTOM_AOP_TRACING.md) e [TRACING_EVOLUTION.md](TRACING_EVOLUTION.md)
+- Integração com JSONPlaceholder API (demo auto-instrumentação)
 
 ## 🛠️ Como Executar
 
@@ -159,6 +160,37 @@ POST /api/simulation/generate-traffic?orderCount=10
 ```
 
 Cria múltiplos pedidos e inicia fluxos aleatórios para gerar traces no OpenTelemetry.
+
+### API Externa (Auto-Instrumentação Demo)
+
+Demonstra auto-instrumentação de chamadas HTTP externas via Feign Client.
+
+#### Buscar Post Enriquecido com Autor
+```bash
+GET /api/external/posts/{id}/enriched
+```
+
+Retorna um post da JSONPlaceholder API com informações do autor. Demonstra:
+- Auto-instrumentação de Feign Client
+- Propagação de contexto para API externa
+- Trace completo: SERVER → INTERNAL → CLIENT → CLIENT
+
+#### Listar Todos os Posts
+```bash
+GET /api/external/posts
+```
+
+#### Listar Posts de um Usuário
+```bash
+GET /api/external/users/{userId}/posts
+```
+
+#### Listar Todos os Usuários
+```bash
+GET /api/external/users
+```
+
+**📝 Ver [AUTO_INSTRUMENTATION.md](AUTO_INSTRUMENTATION.md) para detalhes completos**
 
 ## 🔍 Observabilidade
 
