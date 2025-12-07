@@ -1,7 +1,6 @@
 package org.example.javaotellgtm.service;
 
 import io.micrometer.observation.annotation.Observed;
-import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
@@ -19,116 +18,122 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Observed(name = "order.service")
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final MessagePublisher messagePublisher;
-    private final Tracer tracer;
 
+    @Observed(
+        name = "order.create",
+        contextualName = "create-order",
+        lowCardinalityKeyValues = {"operation", "create"}
+    )
     public Order createOrder(CreateOrderRequest request) {
         log.info("Creating new order for customer: {}", request.getCustomerName());
 
-        // Create span for order creation
-        var span = tracer.nextSpan().name("create-order");
+        // Convert request items to order items and calculate total
+        List<Order.OrderItem> orderItems = request.getItems().stream()
+                .map(item -> {
+                    BigDecimal subtotal = item.getUnitPrice()
+                            .multiply(BigDecimal.valueOf(item.getQuantity()));
+                    return Order.OrderItem.builder()
+                            .productId(item.getProductId())
+                            .productName(item.getProductName())
+                            .quantity(item.getQuantity())
+                            .unitPrice(item.getUnitPrice())
+                            .subtotal(subtotal)
+                            .build();
+                })
+                .collect(Collectors.toList());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("customer.id", request.getCustomerId());
-            span.tag("customer.email", request.getCustomerEmail());
+        BigDecimal totalAmount = orderItems.stream()
+                .map(Order.OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            // Convert request items to order items and calculate total
-            List<Order.OrderItem> orderItems = request.getItems().stream()
-                    .map(item -> {
-                        BigDecimal subtotal = item.getUnitPrice()
-                                .multiply(BigDecimal.valueOf(item.getQuantity()));
-                        return Order.OrderItem.builder()
-                                .productId(item.getProductId())
-                                .productName(item.getProductName())
-                                .quantity(item.getQuantity())
-                                .unitPrice(item.getUnitPrice())
-                                .subtotal(subtotal)
-                                .build();
-                    })
-                    .collect(Collectors.toList());
+        // Create order
+        Order order = Order.builder()
+                .customerId(request.getCustomerId())
+                .customerName(request.getCustomerName())
+                .customerEmail(request.getCustomerEmail())
+                .items(orderItems)
+                .totalAmount(totalAmount)
+                .status(OrderStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .shippingAddress(request.getShippingAddress())
+                .paymentMethod(request.getPaymentMethod())
+                .build();
 
-            BigDecimal totalAmount = orderItems.stream()
-                    .map(Order.OrderItem::getSubtotal)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order = orderRepository.save(order);
 
-            span.tag("order.total", totalAmount.toString());
+        log.info("Order created successfully with ID: {}", order.getId());
 
-            // Create order
-            Order order = Order.builder()
-                    .customerId(request.getCustomerId())
-                    .customerName(request.getCustomerName())
-                    .customerEmail(request.getCustomerEmail())
-                    .items(orderItems)
-                    .totalAmount(totalAmount)
-                    .status(OrderStatus.PENDING)
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .shippingAddress(request.getShippingAddress())
-                    .paymentMethod(request.getPaymentMethod())
-                    .build();
+        // Publish order created event
+        publishOrderEvent(order, OrderEvent.EventType.ORDER_CREATED);
 
-            order = orderRepository.save(order);
-            span.tag("order.id", order.getId());
-
-            log.info("Order created successfully with ID: {}", order.getId());
-
-            // Publish order created event
-            publishOrderEvent(order, OrderEvent.EventType.ORDER_CREATED);
-
-            return order;
-        } finally {
-            span.end();
-        }
+        return order;
     }
 
+    @Observed(
+        name = "order.get",
+        contextualName = "get-order",
+        lowCardinalityKeyValues = {"operation", "read"}
+    )
     public Order getOrder(String orderId) {
         log.info("Fetching order: {}", orderId);
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
     }
 
+    @Observed(
+        name = "order.list.all",
+        contextualName = "list-all-orders",
+        lowCardinalityKeyValues = {"operation", "read"}
+    )
     public List<Order> getAllOrders() {
         log.info("Fetching all orders");
         return orderRepository.findAll();
     }
 
+    @Observed(
+        name = "order.list.by-customer",
+        contextualName = "list-orders-by-customer",
+        lowCardinalityKeyValues = {"operation", "read"}
+    )
     public List<Order> getOrdersByCustomerId(String customerId) {
         log.info("Fetching orders for customer: {}", customerId);
         return orderRepository.findByCustomerId(customerId);
     }
 
+    @Observed(
+        name = "order.update-status",
+        contextualName = "update-order-status",
+        lowCardinalityKeyValues = {"operation", "update"}
+    )
     public Order updateOrderStatus(String orderId, OrderStatus newStatus) {
         log.info("Updating order {} status to {}", orderId, newStatus);
 
-        var span = tracer.nextSpan().name("update-order-status");
+        Order order = getOrder(orderId);
+        OrderStatus oldStatus = order.getStatus();
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("order.id", orderId);
-            span.tag("new.status", newStatus.name());
+        order.setStatus(newStatus);
+        order.setUpdatedAt(LocalDateTime.now());
+        order = orderRepository.save(order);
 
-            Order order = getOrder(orderId);
-            OrderStatus oldStatus = order.getStatus();
+        log.info("Order {} status updated from {} to {}", orderId, oldStatus, newStatus);
 
-            order.setStatus(newStatus);
-            order.setUpdatedAt(LocalDateTime.now());
-            order = orderRepository.save(order);
+        // Publish appropriate event based on new status
+        OrderEvent.EventType eventType = mapStatusToEventType(newStatus);
+        publishOrderEvent(order, eventType);
 
-            log.info("Order {} status updated from {} to {}", orderId, oldStatus, newStatus);
-
-            // Publish appropriate event based on new status
-            OrderEvent.EventType eventType = mapStatusToEventType(newStatus);
-            publishOrderEvent(order, eventType);
-
-            return order;
-        } finally {
-            span.end();
-        }
+        return order;
     }
 
+    @Observed(
+        name = "order.cancel",
+        contextualName = "cancel-order",
+        lowCardinalityKeyValues = {"operation", "cancel"}
+    )
     public void cancelOrder(String orderId) {
         log.info("Cancelling order: {}", orderId);
         updateOrderStatus(orderId, OrderStatus.CANCELLED);

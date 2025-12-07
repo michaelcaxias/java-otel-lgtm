@@ -1,7 +1,6 @@
 package org.example.javaotellgtm.service;
 
 import io.micrometer.observation.annotation.Observed;
-import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.config.RabbitMQConfig;
@@ -12,58 +11,47 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Observed(name = "message.publisher")
 public class MessagePublisher {
 
     private final RabbitTemplate rabbitTemplate;
-    private final Tracer tracer;
 
+    @Observed(
+        name = "message.publish.order-event",
+        contextualName = "publish-order-event",
+        lowCardinalityKeyValues = {"message.type", "order-event", "destination", "rabbitmq"}
+    )
     public void publishOrderEvent(OrderEvent event) {
-        var span = tracer.nextSpan().name("publish-order-event");
+        String routingKey = determineRoutingKey(event.getEventType());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("event.type", event.getEventType().name());
-            span.tag("order.id", event.getOrderId());
-            span.tag("customer.id", event.getCustomerId());
+        log.info("Publishing event {} for order {} with routing key {}",
+                event.getEventType(), event.getOrderId(), routingKey);
 
-            String routingKey = determineRoutingKey(event.getEventType());
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.ORDER_EXCHANGE,
+                routingKey,
+                event
+        );
 
-            log.info("Publishing event {} for order {} with routing key {}",
-                    event.getEventType(), event.getOrderId(), routingKey);
-
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.ORDER_EXCHANGE,
-                    routingKey,
-                    event
-            );
-
-            log.info("Event published successfully");
-        } finally {
-            span.end();
-        }
+        log.info("Event published successfully");
     }
 
+    @Observed(
+        name = "message.publish.notification",
+        contextualName = "publish-notification",
+        lowCardinalityKeyValues = {"message.type", "notification", "destination", "rabbitmq"}
+    )
     public void publishNotification(String email, String subject, String message) {
-        var span = tracer.nextSpan().name("publish-notification");
+        log.info("Publishing notification to email: {}", email);
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("notification.email", email);
-            span.tag("notification.subject", subject);
+        var notification = new EmailNotification(email, subject, message);
 
-            log.info("Publishing notification to email: {}", email);
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.NOTIFICATION_EXCHANGE,
+                RabbitMQConfig.NOTIFICATION_EMAIL_KEY,
+                notification
+        );
 
-            var notification = new EmailNotification(email, subject, message);
-
-            rabbitTemplate.convertAndSend(
-                    RabbitMQConfig.NOTIFICATION_EXCHANGE,
-                    RabbitMQConfig.NOTIFICATION_EMAIL_KEY,
-                    notification
-            );
-
-            log.info("Notification published successfully");
-        } finally {
-            span.end();
-        }
+        log.info("Notification published successfully");
     }
 
     private String determineRoutingKey(OrderEvent.EventType eventType) {

@@ -1,7 +1,6 @@
 package org.example.javaotellgtm.service;
 
 import io.micrometer.observation.annotation.Observed;
-import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.config.RabbitMQConfig;
@@ -14,22 +13,20 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Observed(name = "order.event.consumer")
 public class OrderEventConsumer {
 
-    private final Tracer tracer;
     private final MessagePublisher messagePublisher;
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE)
+    @Observed(
+        name = "message.consume.order-created",
+        contextualName = "handle-order-created",
+        lowCardinalityKeyValues = {"message.type", "order-created", "source", "rabbitmq"}
+    )
     public void handleOrderCreated(OrderEvent event) {
-        var span = tracer.nextSpan().name("handle-order-created");
+        log.info("Processing ORDER_CREATED event for order: {}", event.getOrderId());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("order.id", event.getOrderId());
-            span.tag("event.type", event.getEventType().name());
-
-            log.info("Processing ORDER_CREATED event for order: {}", event.getOrderId());
-
+        try {
             // Simulate processing time
             simulateProcessing(500);
 
@@ -43,25 +40,22 @@ public class OrderEventConsumer {
 
             log.info("Order created event processed successfully");
         } catch (Exception e) {
-            span.error(e);
             log.error("Error processing order created event", e);
-        } finally {
-            span.end();
+            throw e;
         }
     }
 
     @RabbitListener(queues = RabbitMQConfig.PAYMENT_QUEUE)
+    @Observed(
+        name = "message.consume.payment-event",
+        contextualName = "handle-payment-event",
+        lowCardinalityKeyValues = {"message.type", "payment-event", "source", "rabbitmq"}
+    )
     public void handlePaymentEvent(OrderEvent event) {
-        var span = tracer.nextSpan().name("handle-payment-event");
+        log.info("Processing payment event {} for order: {}",
+                event.getEventType(), event.getOrderId());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("order.id", event.getOrderId());
-            span.tag("event.type", event.getEventType().name());
-            span.tag("payment.amount", event.getTotalAmount().toString());
-
-            log.info("Processing payment event {} for order: {}",
-                    event.getEventType(), event.getOrderId());
-
+        try {
             // Simulate payment processing
             simulateProcessing(1000);
 
@@ -73,37 +67,32 @@ public class OrderEventConsumer {
 
                 if (paymentSuccess) {
                     log.info("Payment confirmed for order: {}", event.getOrderId());
-                    span.tag("payment.status", "confirmed");
                 } else {
                     log.warn("Payment failed for order: {}", event.getOrderId());
-                    span.tag("payment.status", "failed");
                 }
             }
 
             log.info("Payment event processed successfully");
         } catch (Exception e) {
-            span.error(e);
             log.error("Error processing payment event", e);
-        } finally {
-            span.end();
+            throw e;
         }
     }
 
     @RabbitListener(queues = RabbitMQConfig.SHIPPING_QUEUE)
+    @Observed(
+        name = "message.consume.shipping-event",
+        contextualName = "handle-shipping-event",
+        lowCardinalityKeyValues = {"message.type", "shipping-event", "source", "rabbitmq"}
+    )
     public void handleShippingEvent(OrderEvent event) {
-        var span = tracer.nextSpan().name("handle-shipping-event");
+        log.info("Processing shipping event for order: {}", event.getOrderId());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("order.id", event.getOrderId());
-            span.tag("event.type", event.getEventType().name());
-
-            log.info("Processing shipping event for order: {}", event.getOrderId());
-
+        try {
             // Simulate shipping label generation
             simulateProcessing(700);
 
             String trackingNumber = generateTrackingNumber();
-            span.tag("tracking.number", trackingNumber);
 
             log.info("Shipping label generated for order: {} - Tracking: {}",
                     event.getOrderId(), trackingNumber);
@@ -118,33 +107,29 @@ public class OrderEventConsumer {
 
             log.info("Shipping event processed successfully");
         } catch (Exception e) {
-            span.error(e);
             log.error("Error processing shipping event", e);
-        } finally {
-            span.end();
+            throw e;
         }
     }
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
+    @Observed(
+        name = "message.consume.notification",
+        contextualName = "handle-notification",
+        lowCardinalityKeyValues = {"message.type", "notification", "source", "rabbitmq"}
+    )
     public void handleNotification(MessagePublisher.EmailNotification notification) {
-        var span = tracer.nextSpan().name("handle-notification");
+        log.info("Sending email to: {} - Subject: {}",
+                notification.email(), notification.subject());
 
-        try (var ws = tracer.withSpan(span.start())) {
-            span.tag("notification.email", notification.email());
-            span.tag("notification.subject", notification.subject());
-
-            log.info("Sending email to: {} - Subject: {}",
-                    notification.email(), notification.subject());
-
+        try {
             // Simulate email sending
             simulateProcessing(300);
 
             log.info("Email sent successfully to: {}", notification.email());
         } catch (Exception e) {
-            span.error(e);
             log.error("Error sending notification", e);
-        } finally {
-            span.end();
+            throw e;
         }
     }
 

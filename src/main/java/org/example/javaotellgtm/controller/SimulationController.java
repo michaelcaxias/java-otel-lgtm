@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping("/api/simulation")
 @RequiredArgsConstructor
-@Observed(name = "simulation.controller")
 public class SimulationController {
 
     private final OrderService orderService;
@@ -37,6 +36,11 @@ public class SimulationController {
     };
 
     @PostMapping("/create-sample-order")
+    @Observed(
+        name = "simulation.create-sample-order",
+        contextualName = "create-sample-order",
+        lowCardinalityKeyValues = {"operation", "simulation"}
+    )
     public ResponseEntity<Order> createSampleOrder() {
         log.info("Creating sample order");
 
@@ -71,6 +75,11 @@ public class SimulationController {
     }
 
     @PostMapping("/simulate-order-flow/{orderId}")
+    @Observed(
+        name = "simulation.order-flow",
+        contextualName = "simulate-order-flow",
+        lowCardinalityKeyValues = {"operation", "simulation"}
+    )
     public ResponseEntity<Map<String, String>> simulateOrderFlow(@PathVariable String orderId) {
         log.info("Starting order flow simulation for order: {}", orderId);
 
@@ -113,6 +122,11 @@ public class SimulationController {
     }
 
     @PostMapping("/generate-traffic")
+    @Observed(
+        name = "simulation.generate-traffic",
+        contextualName = "generate-traffic",
+        lowCardinalityKeyValues = {"operation", "simulation"}
+    )
     public ResponseEntity<Map<String, Object>> generateTraffic(
             @RequestParam(defaultValue = "5") int orderCount) {
         log.info("Generating traffic with {} orders", orderCount);

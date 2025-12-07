@@ -18,12 +18,16 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
-@Observed(name = "order.controller")
 public class OrderController {
 
     private final OrderService orderService;
 
     @PostMapping
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "create-order-endpoint",
+        lowCardinalityKeyValues = {"http.method", "POST", "endpoint", "/api/orders"}
+    )
     public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest request) {
         log.info("Received request to create order for customer: {}", request.getCustomerName());
         Order order = orderService.createOrder(request);
@@ -31,6 +35,11 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "get-order-endpoint",
+        lowCardinalityKeyValues = {"http.method", "GET", "endpoint", "/api/orders/{id}"}
+    )
     public ResponseEntity<Order> getOrder(@PathVariable String orderId) {
         log.info("Received request to get order: {}", orderId);
         Order order = orderService.getOrder(orderId);
@@ -38,6 +47,11 @@ public class OrderController {
     }
 
     @GetMapping
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "get-all-orders-endpoint",
+        lowCardinalityKeyValues = {"http.method", "GET", "endpoint", "/api/orders"}
+    )
     public ResponseEntity<List<Order>> getAllOrders() {
         log.info("Received request to get all orders");
         List<Order> orders = orderService.getAllOrders();
@@ -45,6 +59,11 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{customerId}")
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "get-orders-by-customer-endpoint",
+        lowCardinalityKeyValues = {"http.method", "GET", "endpoint", "/api/orders/customer/{id}"}
+    )
     public ResponseEntity<List<Order>> getOrdersByCustomer(@PathVariable String customerId) {
         log.info("Received request to get orders for customer: {}", customerId);
         List<Order> orders = orderService.getOrdersByCustomerId(customerId);
@@ -52,6 +71,11 @@ public class OrderController {
     }
 
     @PatchMapping("/{orderId}/status")
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "update-order-status-endpoint",
+        lowCardinalityKeyValues = {"http.method", "PATCH", "endpoint", "/api/orders/{id}/status"}
+    )
     public ResponseEntity<Order> updateOrderStatus(
             @PathVariable String orderId,
             @RequestBody Map<String, String> statusUpdate) {
@@ -64,6 +88,11 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/cancel")
+    @Observed(
+        name = "http.server.requests",
+        contextualName = "cancel-order-endpoint",
+        lowCardinalityKeyValues = {"http.method", "POST", "endpoint", "/api/orders/{id}/cancel"}
+    )
     public ResponseEntity<Void> cancelOrder(@PathVariable String orderId) {
         log.info("Received request to cancel order: {}", orderId);
         orderService.cancelOrder(orderId);

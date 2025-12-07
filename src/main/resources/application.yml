@@ -2,6 +2,10 @@ spring:
   application:
     name: java-otel-lgtm
 
+  # AOP Configuration for OpenTelemetry
+  aop:
+    proxy-target-class: true
+
   # RabbitMQ Configuration
   rabbitmq:
     host: localhost
