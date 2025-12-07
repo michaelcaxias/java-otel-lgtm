@@ -24,6 +24,11 @@ public class OrderEvent implements Serializable {
     private EventType eventType;
     private LocalDateTime timestamp;
 
+    // OpenTelemetry Span Link fields
+    private String traceId;      // TraceId do span que criou o evento
+    private String spanId;       // SpanId do span que criou o evento
+    private String traceFlags;   // Flags do trace (sampling, etc)
+
     public enum EventType {
         ORDER_CREATED,
         PAYMENT_PROCESSING,

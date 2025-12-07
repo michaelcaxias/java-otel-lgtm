@@ -1,6 +1,7 @@
 package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,13 @@ public class MessagePublisher {
             attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
     public void publishOrderEvent(OrderEvent event) {
         Span span = Span.current();
+        SpanContext spanContext = span.getSpanContext();
+
+        // ✅ Capturar contexto do span atual para criar link no consumer
+        event.setTraceId(spanContext.getTraceId());
+        event.setSpanId(spanContext.getSpanId());
+        event.setTraceFlags(spanContext.getTraceFlags().asHex());
+
         span.setAttribute("messaging.destination", RabbitMQConfig.ORDER_EXCHANGE);
         span.setAttribute("event.type", event.getEventType().name());
         span.setAttribute("order.id", event.getOrderId());
@@ -30,10 +38,11 @@ public class MessagePublisher {
         String routingKey = determineRoutingKey(event.getEventType());
         span.setAttribute("messaging.routing_key", routingKey);
 
-        log.info("Publishing event {} for order {} with routing key {}",
-                event.getEventType(), event.getOrderId(), routingKey);
+        log.info("Publishing event {} for order {} with routing key {} (traceId: {}, spanId: {})",
+                event.getEventType(), event.getOrderId(), routingKey,
+                event.getTraceId(), event.getSpanId());
 
-        span.addEvent("Publishing message to RabbitMQ");
+        span.addEvent("Publishing message to RabbitMQ with trace context");
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ORDER_EXCHANGE,
@@ -42,7 +51,7 @@ public class MessagePublisher {
         );
 
         span.addEvent("Message published successfully");
-        log.info("Event published successfully");
+        log.info("Event published successfully with trace link");
     }
 
     @Traced(value = "publish-notification", kind = SpanKind.PRODUCER,
