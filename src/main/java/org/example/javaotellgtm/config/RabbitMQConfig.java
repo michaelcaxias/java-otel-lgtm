@@ -120,9 +120,6 @@ public class RabbitMQConfig {
                                         MessageConverter messageConverter) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(messageConverter);
-        // ✅ Context propagation é AUTOMÁTICO via Spring Boot OpenTelemetry!
-        // Headers W3C Trace Context ("traceparent" e "tracestate") são
-        // injetados automaticamente nas mensagens e extraídos nos consumers
         return rabbitTemplate;
     }
 }

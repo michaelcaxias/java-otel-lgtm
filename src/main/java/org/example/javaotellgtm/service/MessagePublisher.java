@@ -23,10 +23,6 @@ public class MessagePublisher {
     public void publishOrderEvent(OrderEvent event) {
         Span span = Span.current();
 
-        // ✅ Context propagation é AUTOMÁTICA!
-        // Spring Boot OpenTelemetry injeta headers "traceparent" e "tracestate"
-        // automaticamente na mensagem RabbitMQ
-
         span.setAttribute("messaging.destination", RabbitMQConfig.ORDER_EXCHANGE);
         span.setAttribute("event.type", event.getEventType().name());
         span.setAttribute("order.id", event.getOrderId());
@@ -40,7 +36,6 @@ public class MessagePublisher {
 
         span.addEvent("Publishing message to RabbitMQ");
 
-        // ✅ RabbitTemplate automaticamente propaga o contexto nos headers!
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ORDER_EXCHANGE,
                 routingKey,
