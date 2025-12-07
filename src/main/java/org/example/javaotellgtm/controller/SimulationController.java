@@ -70,7 +70,7 @@ public class SimulationController {
                 .paymentMethod("CREDIT_CARD")
                 .build();
 
-        Order order = orderService.createOrder(request);
+        Order order = orderService.createOrder(customerId, customerName, customerEmail, request);
         return ResponseEntity.ok(order);
     }
 

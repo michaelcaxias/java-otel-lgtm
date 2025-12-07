@@ -1,6 +1,9 @@
 package org.example.javaotellgtm.service;
 
-import io.micrometer.observation.annotation.Observed;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.config.RabbitMQConfig;
@@ -15,16 +18,23 @@ public class MessagePublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Observed(
-        name = "message.publish.order-event",
-        contextualName = "publish-order-event",
-        lowCardinalityKeyValues = {"message.type", "order-event", "destination", "rabbitmq"}
-    )
+    @WithSpan(value = "publish-order-event", kind = SpanKind.PRODUCER)
     public void publishOrderEvent(OrderEvent event) {
+        Span span = Span.current();
+        span.setAttribute("messaging.system", "rabbitmq");
+        span.setAttribute("messaging.destination", RabbitMQConfig.ORDER_EXCHANGE);
+        span.setAttribute("messaging.destination_kind", "exchange");
+        span.setAttribute("event.type", event.getEventType().name());
+        span.setAttribute("order.id", event.getOrderId());
+        span.setAttribute("customer.id", event.getCustomerId());
+
         String routingKey = determineRoutingKey(event.getEventType());
+        span.setAttribute("messaging.routing_key", routingKey);
 
         log.info("Publishing event {} for order {} with routing key {}",
                 event.getEventType(), event.getOrderId(), routingKey);
+
+        span.addEvent("Publishing message to RabbitMQ");
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.ORDER_EXCHANGE,
@@ -32,18 +42,28 @@ public class MessagePublisher {
                 event
         );
 
+        span.addEvent("Message published successfully");
         log.info("Event published successfully");
     }
 
-    @Observed(
-        name = "message.publish.notification",
-        contextualName = "publish-notification",
-        lowCardinalityKeyValues = {"message.type", "notification", "destination", "rabbitmq"}
-    )
-    public void publishNotification(String email, String subject, String message) {
+    @WithSpan(value = "publish-notification", kind = SpanKind.PRODUCER)
+    public void publishNotification(
+            @SpanAttribute("notification.email") String email,
+            @SpanAttribute("notification.subject") String subject,
+            String message) {
+
+        Span span = Span.current();
+        span.setAttribute("messaging.system", "rabbitmq");
+        span.setAttribute("messaging.destination", RabbitMQConfig.NOTIFICATION_EXCHANGE);
+        span.setAttribute("messaging.destination_kind", "exchange");
+        span.setAttribute("messaging.routing_key", RabbitMQConfig.NOTIFICATION_EMAIL_KEY);
+
         log.info("Publishing notification to email: {}", email);
+        span.addEvent("Creating notification message");
 
         var notification = new EmailNotification(email, subject, message);
+
+        span.addEvent("Publishing notification to RabbitMQ");
 
         rabbitTemplate.convertAndSend(
                 RabbitMQConfig.NOTIFICATION_EXCHANGE,
@@ -51,6 +71,7 @@ public class MessagePublisher {
                 notification
         );
 
+        span.addEvent("Notification published successfully");
         log.info("Notification published successfully");
     }
 

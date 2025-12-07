@@ -36,8 +36,6 @@ management:
       endpoint: http://localhost:4318/v1/traces
     metrics:
       endpoint: http://localhost:4318/v1/metrics
-    logs:
-      endpoint: http://localhost:4318/v1/logs
 
   # Actuator endpoints
   endpoints:
@@ -45,9 +43,12 @@ management:
       exposure:
         include: health,info,metrics,prometheus
 
-# Logging
+# Logging Configuration with OpenTelemetry
 logging:
   level:
     org.example.javaotellgtm: INFO
+    org.springframework.amqp: DEBUG
+    io.opentelemetry: DEBUG
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] --- [%15.15t] %-40.40logger{39} : %m%n"
