@@ -31,9 +31,6 @@ public class OrderController {
     public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest request) {
         log.info("Received request to create order for customer: {}", request.getCustomerName());
         Order order = orderService.createOrder(
-                request.getCustomerId(),
-                request.getCustomerName(),
-                request.getCustomerEmail(),
                 request
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(order);

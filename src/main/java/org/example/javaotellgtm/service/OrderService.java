@@ -2,6 +2,8 @@ package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
@@ -25,90 +27,131 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final MessagePublisher messagePublisher;
+    private final Tracer tracer;
 
-    @WithSpan(value = "create-order", kind = SpanKind.INTERNAL)
-    public Order createOrder(
-            @SpanAttribute("customer.id") String customerId,
-            @SpanAttribute("customer.name") String customerName,
-            @SpanAttribute("customer.email") String customerEmail,
-            CreateOrderRequest request) {
+    public Order createOrder(CreateOrderRequest request) {
+        // ✅ IMPORTANTE: Criar span e guardar a referência
+        Span span = tracer.spanBuilder("create-order")
+                .setSpanKind(SpanKind.INTERNAL)
+                .setParent(Context.current())
+                .startSpan();
 
-        Span span = Span.current();
-        span.setAttribute("operation", "create");
+        try {
+            // ✅ Tornar o span atual no contexto
+            span.makeCurrent();
 
-        log.info("Creating new order for customer: {}", request.getCustomerName());
-        span.addEvent("Starting order creation");
+            // Adicionar atributos
+            span.setAttribute("operation", "create");
+            span.setAttribute("customer.id", request.getCustomerId());
+            span.setAttribute("customer.name", request.getCustomerName());
+            span.setAttribute("customer.email", request.getCustomerEmail());
 
-        // Convert request items to order items and calculate total
-        span.setAttribute("items.count", request.getItems().size());
-        span.addEvent("Calculating order items");
+            log.info("Creating new order for customer: {}", request.getCustomerName());
+            span.addEvent("Starting order creation");
 
-        List<Order.OrderItem> orderItems = request.getItems().stream()
-                .map(item -> {
-                    BigDecimal subtotal = item.getUnitPrice()
-                            .multiply(BigDecimal.valueOf(item.getQuantity()));
-                    return Order.OrderItem.builder()
-                            .productId(item.getProductId())
-                            .productName(item.getProductName())
-                            .quantity(item.getQuantity())
-                            .unitPrice(item.getUnitPrice())
-                            .subtotal(subtotal)
-                            .build();
-                })
-                .collect(Collectors.toList());
+            // Convert request items to order items and calculate total
+            span.setAttribute("items.count", request.getItems().size());
+            span.addEvent("Calculating order items");
 
-        BigDecimal totalAmount = orderItems.stream()
-                .map(Order.OrderItem::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            List<Order.OrderItem> orderItems = request.getItems().stream()
+                    .map(item -> {
+                        BigDecimal subtotal = item.getUnitPrice()
+                                .multiply(BigDecimal.valueOf(item.getQuantity()));
+                        return Order.OrderItem.builder()
+                                .productId(item.getProductId())
+                                .productName(item.getProductName())
+                                .quantity(item.getQuantity())
+                                .unitPrice(item.getUnitPrice())
+                                .subtotal(subtotal)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
 
-        span.setAttribute("order.total", totalAmount.toString());
-        span.addEvent("Order total calculated");
+            BigDecimal totalAmount = orderItems.stream()
+                    .map(Order.OrderItem::getSubtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Create order
-        Order order = Order.builder()
-                .customerId(request.getCustomerId())
-                .customerName(request.getCustomerName())
-                .customerEmail(request.getCustomerEmail())
-                .items(orderItems)
-                .totalAmount(totalAmount)
-                .status(OrderStatus.PENDING)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .shippingAddress(request.getShippingAddress())
-                .paymentMethod(request.getPaymentMethod())
-                .build();
+            span.setAttribute("order.total", totalAmount.toString());
+            span.addEvent("Order total calculated");
 
-        span.addEvent("Saving order to database");
-        order = orderRepository.save(order);
+            // Create order
+            Order order = Order.builder()
+                    .customerId(request.getCustomerId())
+                    .customerName(request.getCustomerName())
+                    .customerEmail(request.getCustomerEmail())
+                    .items(orderItems)
+                    .totalAmount(totalAmount)
+                    .status(OrderStatus.PENDING)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .shippingAddress(request.getShippingAddress())
+                    .paymentMethod(request.getPaymentMethod())
+                    .build();
 
-        span.setAttribute("order.id", order.getId());
-        span.setAttribute("order.status", order.getStatus().name());
-        span.addEvent("Order saved to database");
+            span.addEvent("Saving order to database");
+            order = orderRepository.save(order);
 
-        log.info("Order created successfully with ID: {}", order.getId());
+            span.setAttribute("order.id", order.getId());
+            span.setAttribute("order.status", order.getStatus().name());
+            span.addEvent("Order saved to database");
 
-        // Publish order created event
-        span.addEvent("Publishing order created event");
-        publishOrderEvent(order, OrderEvent.EventType.ORDER_CREATED);
-        span.addEvent("Order event published");
+            log.info("Order created successfully with ID: {}", order.getId());
 
-        return order;
+            // Publish order created event
+            span.addEvent("Publishing order created event");
+            publishOrderEvent(order, OrderEvent.EventType.ORDER_CREATED);
+            span.addEvent("Order event published");
+
+            return order;
+
+        } catch (Exception e) {
+            // ✅ Registrar exceção no span
+            span.recordException(e);
+            span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "Failed to create order");
+            throw e;
+        } finally {
+            // ✅ CRÍTICO: Sempre finalizar o span!
+            span.end();
+        }
     }
 
-    @WithSpan(value = "get-order", kind = SpanKind.INTERNAL)
-    public Order getOrder(@SpanAttribute("order.id") String orderId) {
-        Span span = Span.current();
-        span.setAttribute("operation", "read");
+    public Order getOrder(String orderId) {
+        // ✅ Nome correto do span (estava "create-order", corrigido para "get-order")
+        Span span = tracer.spanBuilder("get-order")
+                .setSpanKind(SpanKind.INTERNAL)
+                .setParent(Context.current())
+                .startSpan();
 
-        log.info("Fetching order: {}", orderId);
-        span.addEvent("Querying database for order");
+        try {
+            // ✅ Tornar o span atual
+            span.makeCurrent();
 
-        return orderRepository.findById(orderId)
-                .orElseThrow(() -> {
-                    span.addEvent("Order not found");
-                    span.setAttribute("error", "true");
-                    return new RuntimeException("Order not found: " + orderId);
-                });
+            // Adicionar atributos
+            span.setAttribute("operation", "read");
+            span.setAttribute("order.id", orderId);
+
+            log.info("Fetching order: {}", orderId);
+            span.addEvent("Querying database for order");
+
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> {
+                        span.addEvent("Order not found");
+                        span.setAttribute("error", "true");
+                        return new RuntimeException("Order not found: " + orderId);
+                    });
+
+            span.addEvent("Order retrieved successfully");
+            return order;
+
+        } catch (Exception e) {
+            // ✅ Registrar exceção
+            span.recordException(e);
+            span.setStatus(io.opentelemetry.api.trace.StatusCode.ERROR, "Failed to get order");
+            throw e;
+        } finally {
+            // ✅ Sempre finalizar o span
+            span.end();
+        }
     }
 
     @WithSpan(value = "list-all-orders", kind = SpanKind.INTERNAL)

@@ -43,12 +43,26 @@ management:
       exposure:
         include: health,info,metrics,prometheus
 
+# OpenTelemetry Resource Attributes
+otel:
+  service:
+    name: java-otel-lgtm
+  resource:
+    attributes:
+      service.name: java-otel-lgtm
+      service.version: 0.0.1-SNAPSHOT
+      deployment.environment: development
+
 # Logging Configuration with OpenTelemetry
 logging:
   level:
     org.example.javaotellgtm: INFO
-    org.springframework.amqp: DEBUG
-    io.opentelemetry: DEBUG
+    org.springframework.amqp: INFO
+    io.opentelemetry: INFO
+    io.micrometer: INFO
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}] --- [%15.15t] %-40.40logger{39} : %m%n"
+  # ⚠️ IMPORTANTE: Spring Boot 4.0 NÃO exporta logs automaticamente para OTLP
+  # Os logs aparecem no console com traceId/spanId, mas NÃO são enviados ao Grafana LGTM
+  # Para enviar logs, você precisaria de Logback Appender ou sidecar (Promtail/Fluent Bit)
