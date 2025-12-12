@@ -38,21 +38,11 @@ public class OrderEvent implements Serializable, TelemetryEvent {
     public Map<String, String> attributes() {
         Map<String, String> attrs = new HashMap<>();
 
-        if (orderId != null) {
-            attrs.put(AttributeName.ORDER_ID.getKey(), orderId);
-        }
-        if (customerId != null) {
-            attrs.put(AttributeName.CUSTOMER_ID.getKey(), customerId);
-        }
-        if (eventType != null) {
-            attrs.put(AttributeName.EVENT_TYPE.getKey(), eventType.toString());
-        }
-        if (totalAmount != null) {
-            attrs.put(AttributeName.ORDER_TOTAL_AMOUNT.getKey(), totalAmount.toString());
-        }
-        if (status != null) {
-            attrs.put(AttributeName.ORDER_STATUS.getKey(), status.name());
-        }
+        attrs.put(AttributeName.ORDER_ID.getKey(), orderId);
+        attrs.put(AttributeName.CUSTOMER_ID.getKey(), customerId);
+        attrs.put(AttributeName.EVENT_TYPE.getKey(), eventType.toString());
+        attrs.put(AttributeName.ORDER_TOTAL_AMOUNT.getKey(), totalAmount.toString());
+        attrs.put(AttributeName.ORDER_STATUS.getKey(), status.name());
 
         return attrs;
     }

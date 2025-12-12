@@ -1,6 +1,5 @@
 package org.example.javaotellgtm.service;
 
-import io.opentelemetry.api.trace.Span;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
@@ -39,13 +38,9 @@ public class OrderService {
             @SpanAttribute("customer.name") String customerName,
             CreateOrderRequest request) {
 
-        Span span = Span.current();
         log.info("Creating new order for customer: {}", customerName);
-        span.addEvent("Starting order creation");
 
         // Convert request items to order items and calculate total
-        span.addEvent("Calculating order items");
-
         List<Order.OrderItem> orderItems = request.getItems().stream()
                     .map(item -> {
                         BigDecimal subtotal = item.getUnitPrice()
@@ -64,15 +59,14 @@ public class OrderService {
                 .map(Order.OrderItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Add runtime attributes
+        // Add runtime attributes (instead of events)
         SpanWrap.addAttributes(Map.of(
                 AttributeName.ORDER_ITEMS_COUNT.getKey(), String.valueOf(orderItems.size()),
                 AttributeName.ORDER_TOTAL_AMOUNT.getKey(), totalAmount.toString(),
                 AttributeName.ORDER_PAYMENT_METHOD.getKey(), request.getPaymentMethod()
         ));
-        span.addEvent("Order total calculated");
 
-        // Create order
+        // Create and save order
         Order order = Order.builder()
                     .customerId(request.getCustomerId())
                     .customerName(request.getCustomerName())
@@ -86,33 +80,27 @@ public class OrderService {
                     .paymentMethod(request.getPaymentMethod())
                 .build();
 
-        span.addEvent("Saving order to database");
         order = orderRepository.save(order);
-
-        // Add order attributes using TelemetryEvent
         SpanWrap.addAttributes(order);
-        span.addEvent("Order saved to database");
 
         log.info("Order created successfully with ID: {}", order.getId());
 
         // Publish order created event
-        span.addEvent("Publishing order created event");
         publishOrderEvent(order, OrderEvent.EventType.ORDER_CREATED);
-        span.addEvent("Order event published");
 
         return order;
     }
 
     @TraceSpan(SpanName.ORDER_FETCH)
     public Order getOrder(@SpanAttribute("order.id") String orderId) {
-        Span span = Span.current();
-
         log.info("Fetching order: {}", orderId);
-        span.addEvent("Querying database for order");
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> {
-                    span.addEvent("Order not found");
+                    // Event ONLY for exceptional situation (not found)
+                    SpanWrap.addEvent("order.not_found", Map.of(
+                            "order.id", orderId
+                    ));
                     SpanWrap.addAttributes(Map.of(
                             AttributeName.ERROR.getKey(), "true",
                             AttributeName.ERROR_MESSAGE.getKey(), "Order not found: " + orderId
@@ -120,42 +108,32 @@ public class OrderService {
                     return new RuntimeException("Order not found: " + orderId);
                 });
 
-        // Add order attributes using TelemetryEvent
         SpanWrap.addAttributes(order);
-        span.addEvent("Order retrieved successfully");
         return order;
     }
 
     @TraceSpan(SpanName.ORDER_LIST_ALL)
     public List<Order> getAllOrders() {
-        Span span = Span.current();
-
         log.info("Fetching all orders");
-        span.addEvent("Querying all orders from database");
 
         List<Order> orders = orderRepository.findAll();
 
         SpanWrap.addAttributes(Map.of(
                 AttributeName.ORDERS_COUNT.getKey(), String.valueOf(orders.size())
         ));
-        span.addEvent("Orders retrieved");
 
         return orders;
     }
 
     @TraceSpan(SpanName.ORDER_LIST_BY_CUSTOMER)
     public List<Order> getOrdersByCustomerId(@SpanAttribute("customer.id") String customerId) {
-        Span span = Span.current();
-
         log.info("Fetching orders for customer: {}", customerId);
-        span.addEvent("Querying orders by customer");
 
         List<Order> orders = orderRepository.findByCustomerId(customerId);
 
         SpanWrap.addAttributes(Map.of(
                 AttributeName.ORDERS_COUNT.getKey(), String.valueOf(orders.size())
         ));
-        span.addEvent("Customer orders retrieved");
 
         return orders;
     }
@@ -165,10 +143,7 @@ public class OrderService {
             @SpanAttribute("order.id") String orderId,
             @SpanAttribute("order.status.new") OrderStatus newStatus) {
 
-        Span span = Span.current();
-
         log.info("Updating order {} status to {}", orderId, newStatus);
-        span.addEvent("Starting status update");
 
         Order order = getOrder(orderId);
         OrderStatus oldStatus = order.getStatus();
@@ -176,39 +151,35 @@ public class OrderService {
         SpanWrap.addAttributes(Map.of(
                 AttributeName.ORDER_STATUS_OLD.getKey(), oldStatus.name()
         ));
-        span.addEvent("Current status retrieved");
 
         order.setStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
-
-        span.addEvent("Saving updated order");
         order = orderRepository.save(order);
-        span.addEvent("Order status updated in database");
 
         log.info("Order {} status updated from {} to {}", orderId, oldStatus, newStatus);
+
+        // Event ONLY for significant state change
+        SpanWrap.addEvent("order.status.changed", Map.of(
+                "order.id", orderId,
+                "status.old", oldStatus.name(),
+                "status.new", newStatus.name()
+        ));
 
         // Publish appropriate event based on new status
         OrderEvent.EventType eventType = mapStatusToEventType(newStatus);
         SpanWrap.addAttributes(Map.of(
                 AttributeName.EVENT_TYPE.getKey(), eventType.name()
         ));
-        span.addEvent("Publishing status change event");
         publishOrderEvent(order, eventType);
-        span.addEvent("Status change event published");
 
         return order;
     }
 
     @TraceSpan(SpanName.ORDER_CANCEL)
     public void cancelOrder(@SpanAttribute("order.id") String orderId) {
-        Span span = Span.current();
-
         log.info("Cancelling order: {}", orderId);
-        span.addEvent("Initiating order cancellation");
 
         updateOrderStatus(orderId, OrderStatus.CANCELLED);
-
-        span.addEvent("Order cancelled successfully");
     }
 
     private void publishOrderEvent(Order order, OrderEvent.EventType eventType) {

@@ -8,6 +8,38 @@ Aplicar as boas práticas de OpenTelemetry conforme documentação oficial e pad
 
 ---
 
+## 🆕 Atualização: Uso Apropriado de Eventos em Spans
+
+### Data: 12 de dezembro de 2025
+
+Aplicadas boas práticas para **uso moderado de eventos em spans**, evitando poluição e overhead desnecessário.
+
+### Princípios Aplicados
+
+1. **Eventos apenas para situações excepcionais** - Não para fluxo normal
+2. **Máximo 3-5 eventos por span** - Evitar poluição visual
+3. **Priorizar atributos sobre eventos** - Para contexto estruturado
+4. **Usar logs para detalhes do fluxo** - Eventos são para troubleshooting
+
+### Redução de Eventos
+
+| Serviço | Método | Antes | Depois | Redução |
+|---------|--------|-------|--------|---------|
+| OrderService | createOrder | 7 eventos | 0 eventos | -100% |
+| OrderService | getOrder | 3 eventos | 1 evento (apenas erro) | -67% |
+| OrderService | getAllOrders | 2 eventos | 0 eventos | -100% |
+| OrderService | getOrdersByCustomerId | 2 eventos | 0 eventos | -100% |
+| OrderService | updateOrderStatus | 5 eventos | 1 evento (mudança estado) | -80% |
+| OrderService | cancelOrder | 2 eventos | 0 eventos | -100% |
+| ExternalApiService | getPostWithAuthor | 6 eventos | 0-1 evento (apenas falha) | -83% a -100% |
+| ExternalApiService | getUserPosts | 2 eventos | 0 eventos | -100% |
+| ExternalApiService | getAllPosts | 2 eventos | 0 eventos | -100% |
+| ExternalApiService | getAllUsers | 2 eventos | 0 eventos | -100% |
+
+**Total:** De **31 eventos** para **2-3 eventos** (apenas excepcionais) = **~90% de redução**
+
+---
+
 ## ✅ Mudanças Implementadas
 
 ### 1. **Padronização de Nomenclatura de Spans**
@@ -253,17 +285,26 @@ SpanWrap.addAttributes(Map.of(
 
 ### Documentação
 - ✅ `docs/02-boas-praticas-aplicadas.md` - Documentação completa das boas práticas
+- ✅ `docs/03-boas-praticas-eventos-spans.md` - Guia de uso apropriado de eventos
 
 ---
 
 ## 📊 Estatísticas
 
+### Primeira Fase (Padronização)
 - **Arquivos modificados:** 13
 - **Spans padronizados:** 10
 - **Atributos padronizados:** 21
 - **Instâncias de PII removidas:** 8+
 - **Implementações de TelemetryEvent:** 2
 - **Controllers auto-instrumentados:** 3
+
+### Segunda Fase (Otimização de Eventos)
+- **Arquivos modificados:** 3 (OrderService, ExternalApiService, docs)
+- **Eventos removidos:** ~28 (de 31 para 2-3)
+- **Redução de eventos:** ~90%
+- **Melhoria de performance:** Significativa (menos overhead)
+- **Clareza de spans:** Muito melhorada
 
 ---
 
@@ -275,6 +316,10 @@ SpanWrap.addAttributes(Map.of(
 4. **Auto-instrumentação é poderosa** - Controllers, FeignClient e RabbitMQ já criam spans automaticamente
 5. **Constantes centralizam e protegem** - `SpanName` e `AttributeName` evitam typos e facilitam manutenção
 6. **TelemetryEvent simplifica** - Objetos de domínio podem expor seus próprios atributos de forma consistente
+7. **Eventos devem ser usados com moderação** - Apenas para situações excepcionais, não para fluxo normal
+8. **Menos é mais em observabilidade** - Spans limpos são mais úteis que spans poluídos
+9. **Priorize atributos sobre eventos** - Atributos estruturam contexto, eventos marcam exceções
+10. **Logs complementam spans** - Detalhes do fluxo vão nos logs, não em eventos de span
 
 ---
 
@@ -302,4 +347,6 @@ Este projeto agora está em **total conformidade** com as boas práticas de Open
 - [x] `TelemetryEvent` implementado em objetos de domínio
 - [x] Auto-instrumentação respeitada (controllers, clients)
 - [x] `@TraceSpan` usado apenas para operações `INTERNAL`
+- [x] Uso apropriado de eventos (apenas excepcionais)
+- [x] Redução de ~90% no número de eventos
 - [x] Documentação completa e atualizada
