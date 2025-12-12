@@ -1,9 +1,7 @@
 package org.example.javaotellgtm.controller;
 
-import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
 import org.example.javaotellgtm.model.Order;
 import org.example.javaotellgtm.model.OrderStatus;
@@ -36,9 +34,11 @@ public class SimulationController {
             "Headset", "SSD", "RAM", "GPU", "Mousepad"
     };
 
+    /**
+     * Creates a sample order for testing/simulation purposes.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
+     */
     @PostMapping("/create-sample-order")
-    @Traced(value = "create-sample-order", kind = SpanKind.SERVER,
-            attributes = {"operation:simulation"})
     public ResponseEntity<Order> createSampleOrder() {
         log.info("Creating sample order");
 
@@ -68,18 +68,20 @@ public class SimulationController {
                 .paymentMethod("CREDIT_CARD")
                 .build();
 
+        // Note: Email is not passed as parameter to avoid PII in spans
         Order order = orderService.createOrder(
                 customerId,
                 customerName,
-                customerEmail,
                 request
         );
         return ResponseEntity.ok(order);
     }
 
+    /**
+     * Simulates an order flow from payment to delivery.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
+     */
     @PostMapping("/simulate-order-flow/{orderId}")
-    @Traced(value = "simulate-order-flow", kind = SpanKind.SERVER,
-            attributes = {"operation:simulation"})
     public ResponseEntity<Map<String, String>> simulateOrderFlow(@PathVariable String orderId) {
         log.info("Starting order flow simulation for order: {}", orderId);
 
@@ -121,9 +123,11 @@ public class SimulationController {
         ));
     }
 
+    /**
+     * Generates traffic by creating multiple orders.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
+     */
     @PostMapping("/generate-traffic")
-    @Traced(value = "generate-traffic", kind = SpanKind.SERVER,
-            attributes = {"operation:simulation"})
     public ResponseEntity<Map<String, Object>> generateTraffic(
             @RequestParam(defaultValue = "5") int orderCount) {
         log.info("Generating traffic with {} orders", orderCount);

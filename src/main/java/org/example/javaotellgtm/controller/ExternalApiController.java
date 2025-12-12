@@ -1,11 +1,8 @@
 package org.example.javaotellgtm.controller;
 
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.SpanAttribute;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.dto.external.JsonPlaceholderPost;
 import org.example.javaotellgtm.dto.external.JsonPlaceholderUser;
 import org.example.javaotellgtm.service.ExternalApiService;
@@ -16,11 +13,18 @@ import java.util.List;
 
 /**
  * Controller para demonstrar auto-instrumentação do OpenTelemetry
- * com chamadas a APIs externas via Feign Client
+ * com chamadas a APIs externas via Feign Client.
  *
- * Trace completo:
- * HTTP Request (SERVER) → Service (INTERNAL) → Feign Client (CLIENT) → External API
- * Todo contexto propagado automaticamente!
+ * <p>Trace completo:
+ * <ul>
+ *   <li>HTTP Request (SERVER) - auto-instrumented by Spring Boot
+ *   <li>Service (INTERNAL) - instrumented with @TraceSpan
+ *   <li>Feign Client (CLIENT) - auto-instrumented by OpenTelemetry
+ *   <li>External API
+ * </ul>
+ *
+ * <p>Todo contexto propagado automaticamente via HTTP headers!
+ * <p>Note: Controllers are auto-instrumented, no need for @TraceSpan with SERVER kind.
  */
 @Slf4j
 @RestController
@@ -31,15 +35,12 @@ public class ExternalApiController {
     private final ExternalApiService externalApiService;
 
     /**
-     * Demonstra trace completo com múltiplas chamadas HTTP externas
+     * Demonstra trace completo com múltiplas chamadas HTTP externas.
      * Grafana mostrará: SERVER → INTERNAL → CLIENT (post) → CLIENT (user)
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
      */
     @GetMapping("/posts/{id}/enriched")
-    @Traced(value = "get-enriched-post-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/external/posts/{id}/enriched"})
-    public ResponseEntity<ExternalApiService.EnrichedPost> getEnrichedPost(
-            @PathVariable @SpanAttribute("post.id") Long id) {
-
+    public ResponseEntity<ExternalApiService.EnrichedPost> getEnrichedPost(@PathVariable Long id) {
         Span span = Span.current();
         span.addEvent("Received request for enriched post");
 
@@ -52,11 +53,10 @@ public class ExternalApiController {
     }
 
     /**
-     * Lista todos os posts
+     * Lista todos os posts.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
      */
     @GetMapping("/posts")
-    @Traced(value = "get-all-posts-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/external/posts"})
     public ResponseEntity<List<JsonPlaceholderPost>> getAllPosts() {
         log.info("Received request to get all posts");
 
@@ -66,14 +66,11 @@ public class ExternalApiController {
     }
 
     /**
-     * Lista posts de um usuário específico
+     * Lista posts de um usuário específico.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
      */
     @GetMapping("/users/{userId}/posts")
-    @Traced(value = "get-user-posts-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/external/users/{userId}/posts"})
-    public ResponseEntity<List<JsonPlaceholderPost>> getUserPosts(
-            @PathVariable @SpanAttribute("user.id") Long userId) {
-
+    public ResponseEntity<List<JsonPlaceholderPost>> getUserPosts(@PathVariable Long userId) {
         log.info("Received request to get posts for user: {}", userId);
 
         List<JsonPlaceholderPost> posts = externalApiService.getUserPosts(userId);
@@ -82,11 +79,10 @@ public class ExternalApiController {
     }
 
     /**
-     * Lista todos os usuários
+     * Lista todos os usuários.
+     * Note: This endpoint is auto-instrumented with SERVER span by Spring Boot.
      */
     @GetMapping("/users")
-    @Traced(value = "get-all-users-endpoint", kind = SpanKind.SERVER,
-            attributes = {"http.method:GET", "endpoint:/api/external/users"})
     public ResponseEntity<List<JsonPlaceholderUser>> getAllUsers() {
         log.info("Received request to get all users");
 

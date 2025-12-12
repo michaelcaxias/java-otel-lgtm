@@ -1,8 +1,5 @@
 package org.example.javaotellgtm.traces.interceptor;
 
-import com.mercadolibre.otel.events.builder.fintech.FintechEvent;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.constants.ApplicationConstants;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.web.CommonsHeaders;
 import io.opentelemetry.api.trace.Span;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,7 +25,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>All attributes are extracted directly from the HTTP request headers.
  *
- * @see FintechEvent
  * @see Span
  */
 @Component
@@ -66,44 +62,12 @@ public class TelemetryEnrichmentInterceptor extends OncePerRequestFilter {
         return;
       }
 
-      // Add Fintech Event attributes
-      addFintechEventAttributes(currentSpan, request);
-
       // Add additional HTTP headers as span attributes
       addHttpHeaderAttributes(currentSpan, request);
 
     } catch (Exception e) {
       log.error("Error enriching span with telemetry", e);
     }
-  }
-
-  /**
-   * Adds Fintech Event standardized attributes to the span.
-   *
-   * @param span the current OpenTelemetry span
-   * @param request the HTTP request containing headers
-   */
-  private void addFintechEventAttributes(Span span, HttpServletRequest request) {
-    var siteId = request.getHeader(CommonsHeaders.SITE.getHeaderName());
-    var userId = request.getHeader(CommonsHeaders.CALLER_ID.getHeaderName());
-    var requestId = request.getHeader(CommonsHeaders.REQUEST_ID.getHeaderName());
-
-    var builder = FintechEvent.builder()
-            .withBusinessUnit(ApplicationConstants.BUSINESS_UNIT);
-
-    if (siteId != null && !siteId.isEmpty()) {
-      builder.withSiteId(siteId);
-    }
-
-    if (userId != null && !userId.isEmpty()) {
-      builder.withUserId(userId);
-    }
-
-    if (requestId != null && !requestId.isEmpty()) {
-      builder.withRequestId(requestId);
-    }
-
-    builder.build().attachTo(span);
   }
 
   /**
