@@ -1,7 +1,6 @@
 package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
@@ -11,11 +10,15 @@ import org.example.javaotellgtm.model.OrderStatus;
 import org.example.javaotellgtm.repository.OrderRepository;
 import org.example.javaotellgtm.traces.annotation.SpanAttribute;
 import org.example.javaotellgtm.traces.annotation.TraceSpan;
+import org.example.javaotellgtm.traces.constants.AttributeName;
+import org.example.javaotellgtm.traces.constants.SpanName;
+import org.example.javaotellgtm.traces.processor.SpanWrap;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -26,19 +29,21 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final MessagePublisher messagePublisher;
 
-    @TraceSpan(value = "create-order", kind = SpanKind.INTERNAL)
+    /**
+     * Creates a new order.
+     * Note: Email is NOT added as span attribute as it's PII (Personally Identifiable Information).
+     */
+    @TraceSpan(SpanName.ORDER_CREATE)
     public Order createOrder(
             @SpanAttribute("customer.id") String customerId,
             @SpanAttribute("customer.name") String customerName,
-            @SpanAttribute("customer.email") String customerEmail,
             CreateOrderRequest request) {
 
         Span span = Span.current();
-        log.info("Creating new order for customer: {}", request.getCustomerName());
+        log.info("Creating new order for customer: {}", customerName);
         span.addEvent("Starting order creation");
 
         // Convert request items to order items and calculate total
-        span.setAttribute("items.count", request.getItems().size());
         span.addEvent("Calculating order items");
 
         List<Order.OrderItem> orderItems = request.getItems().stream()
@@ -59,7 +64,12 @@ public class OrderService {
                 .map(Order.OrderItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        span.setAttribute("order.total", totalAmount.toString());
+        // Add runtime attributes
+        SpanWrap.addAttributes(Map.of(
+                AttributeName.ORDER_ITEMS_COUNT.getKey(), String.valueOf(orderItems.size()),
+                AttributeName.ORDER_TOTAL_AMOUNT.getKey(), totalAmount.toString(),
+                AttributeName.ORDER_PAYMENT_METHOD.getKey(), request.getPaymentMethod()
+        ));
         span.addEvent("Order total calculated");
 
         // Create order
@@ -79,8 +89,8 @@ public class OrderService {
         span.addEvent("Saving order to database");
         order = orderRepository.save(order);
 
-        span.setAttribute("order.id", order.getId());
-        span.setAttribute("order.status", order.getStatus().name());
+        // Add order attributes using TelemetryEvent
+        SpanWrap.addAttributes(order);
         span.addEvent("Order saved to database");
 
         log.info("Order created successfully with ID: {}", order.getId());
@@ -93,7 +103,7 @@ public class OrderService {
         return order;
     }
 
-    @TraceSpan(value = "get-order", kind = SpanKind.INTERNAL)
+    @TraceSpan(SpanName.ORDER_FETCH)
     public Order getOrder(@SpanAttribute("order.id") String orderId) {
         Span span = Span.current();
 
@@ -103,15 +113,20 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> {
                     span.addEvent("Order not found");
-                    span.setAttribute("error", "true");
+                    SpanWrap.addAttributes(Map.of(
+                            AttributeName.ERROR.getKey(), "true",
+                            AttributeName.ERROR_MESSAGE.getKey(), "Order not found: " + orderId
+                    ));
                     return new RuntimeException("Order not found: " + orderId);
                 });
 
+        // Add order attributes using TelemetryEvent
+        SpanWrap.addAttributes(order);
         span.addEvent("Order retrieved successfully");
         return order;
     }
 
-    @TraceSpan()
+    @TraceSpan(SpanName.ORDER_LIST_ALL)
     public List<Order> getAllOrders() {
         Span span = Span.current();
 
@@ -120,13 +135,15 @@ public class OrderService {
 
         List<Order> orders = orderRepository.findAll();
 
-        span.setAttribute("orders.count", orders.size());
+        SpanWrap.addAttributes(Map.of(
+                AttributeName.ORDERS_COUNT.getKey(), String.valueOf(orders.size())
+        ));
         span.addEvent("Orders retrieved");
 
         return orders;
     }
 
-    @TraceSpan(value = "list-orders-by-customer", kind = SpanKind.INTERNAL)
+    @TraceSpan(SpanName.ORDER_LIST_BY_CUSTOMER)
     public List<Order> getOrdersByCustomerId(@SpanAttribute("customer.id") String customerId) {
         Span span = Span.current();
 
@@ -135,16 +152,18 @@ public class OrderService {
 
         List<Order> orders = orderRepository.findByCustomerId(customerId);
 
-        span.setAttribute("orders.count", orders.size());
+        SpanWrap.addAttributes(Map.of(
+                AttributeName.ORDERS_COUNT.getKey(), String.valueOf(orders.size())
+        ));
         span.addEvent("Customer orders retrieved");
 
         return orders;
     }
 
-    @TraceSpan(value = "update-order-status", kind = SpanKind.INTERNAL)
+    @TraceSpan(SpanName.ORDER_UPDATE_STATUS)
     public Order updateOrderStatus(
             @SpanAttribute("order.id") String orderId,
-            @SpanAttribute("new.status") OrderStatus newStatus) {
+            @SpanAttribute("order.status.new") OrderStatus newStatus) {
 
         Span span = Span.current();
 
@@ -154,7 +173,9 @@ public class OrderService {
         Order order = getOrder(orderId);
         OrderStatus oldStatus = order.getStatus();
 
-        span.setAttribute("old.status", oldStatus.name());
+        SpanWrap.addAttributes(Map.of(
+                AttributeName.ORDER_STATUS_OLD.getKey(), oldStatus.name()
+        ));
         span.addEvent("Current status retrieved");
 
         order.setStatus(newStatus);
@@ -168,7 +189,9 @@ public class OrderService {
 
         // Publish appropriate event based on new status
         OrderEvent.EventType eventType = mapStatusToEventType(newStatus);
-        span.setAttribute("event.type", eventType.name());
+        SpanWrap.addAttributes(Map.of(
+                AttributeName.EVENT_TYPE.getKey(), eventType.name()
+        ));
         span.addEvent("Publishing status change event");
         publishOrderEvent(order, eventType);
         span.addEvent("Status change event published");
@@ -176,7 +199,7 @@ public class OrderService {
         return order;
     }
 
-    @TraceSpan(value = "cancel-order", kind = SpanKind.INTERNAL)
+    @TraceSpan(SpanName.ORDER_CANCEL)
     public void cancelOrder(@SpanAttribute("order.id") String orderId) {
         Span span = Span.current();
 

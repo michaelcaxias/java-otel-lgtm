@@ -1,8 +1,8 @@
 package org.example.javaotellgtm.traces.contract;
 
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.annotation.SpanAttribute;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.constants.AttributeName;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.processor.SpanWrap;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.constants.AttributeName;
+import org.example.javaotellgtm.traces.processor.SpanWrap;
 import java.util.Map;
 
 /**

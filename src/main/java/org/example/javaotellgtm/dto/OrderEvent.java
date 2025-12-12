@@ -7,11 +7,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.javaotellgtm.model.OrderStatus;
+import org.example.javaotellgtm.traces.constants.AttributeName;
+import org.example.javaotellgtm.traces.contract.TelemetryEvent;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import org.example.javaotellgtm.traces.contract.TelemetryEvent;
 
 @Data
 @Builder
@@ -21,7 +22,7 @@ public class OrderEvent implements Serializable, TelemetryEvent {
 
     private String orderId;
     private String customerId;
-    private String customerEmail;
+    private String customerEmail; // Note: NOT exposed in telemetry (PII)
     private BigDecimal totalAmount;
     private OrderStatus status;
     private EventType eventType;
@@ -29,20 +30,29 @@ public class OrderEvent implements Serializable, TelemetryEvent {
 
     /**
      * Returns a map of Observability span attributes for this domain object.
-     *
-     * <p>Keys should use {@link AttributeName} enum constants to ensure consistency. Null values will
-     * be automatically filtered out by {@link SpanWrap} or {@link SpanAttribute}.
+     * Note: Email is NOT included as it's PII (Personally Identifiable Information).
      *
      * @return map of attribute key-value pairs (null values are allowed and will be skipped)
      */
     @Override
     public Map<String, String> attributes() {
-        var attrs = new HashMap<String, String>();
+        Map<String, String> attrs = new HashMap<>();
 
-        attrs.put("order.id", orderId);
-        attrs.put("event.type", eventType.toString());
-        attrs.put("customer.id", orderId);
-        attrs.put("order.total_amount", totalAmount.toString());
+        if (orderId != null) {
+            attrs.put(AttributeName.ORDER_ID.getKey(), orderId);
+        }
+        if (customerId != null) {
+            attrs.put(AttributeName.CUSTOMER_ID.getKey(), customerId);
+        }
+        if (eventType != null) {
+            attrs.put(AttributeName.EVENT_TYPE.getKey(), eventType.toString());
+        }
+        if (totalAmount != null) {
+            attrs.put(AttributeName.ORDER_TOTAL_AMOUNT.getKey(), totalAmount.toString());
+        }
+        if (status != null) {
+            attrs.put(AttributeName.ORDER_STATUS.getKey(), status.name());
+        }
 
         return attrs;
     }

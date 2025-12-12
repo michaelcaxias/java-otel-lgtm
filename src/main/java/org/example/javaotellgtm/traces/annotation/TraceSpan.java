@@ -1,6 +1,6 @@
 package org.example.javaotellgtm.traces.annotation;
 
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.aspect.TracingAspect;
+import org.example.javaotellgtm.traces.aspect.TracingAspect;
 import io.opentelemetry.api.trace.SpanKind;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

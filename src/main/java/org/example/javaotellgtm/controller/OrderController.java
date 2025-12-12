@@ -1,10 +1,8 @@
 package org.example.javaotellgtm.controller;
 
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
 import org.example.javaotellgtm.model.Order;
 import org.example.javaotellgtm.model.OrderStatus;
@@ -28,16 +26,16 @@ public class OrderController {
     public ResponseEntity<Order> createOrder(@RequestBody CreateOrderRequest request) {
         Span span = Span.current();
 
-        span.addEvent("Received request: " + request.toString());
+        span.addEvent("Received create order request");
 
+        // Note: Email is not passed as parameter to avoid PII in spans
         Order order = orderService.createOrder(
                 request.getCustomerId(),
                 request.getCustomerName(),
-                request.getCustomerEmail(),
                 request
         );
 
-        span.addEvent("Response: " + order.toString());
+        span.addEvent("Order created successfully");
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
 

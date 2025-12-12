@@ -1,32 +1,35 @@
 package org.example.javaotellgtm.traces.processor;
 
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.constants.AttributeName;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.contract.TelemetryEvent;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.example.javaotellgtm.traces.contract.TelemetryEvent;
 
 /**
- * Utility class for adding telemetry attributes to the current OpenTelemetry span.
+ * Utility class for adding telemetry attributes and events to the current OpenTelemetry span.
  *
- * <p>This class centralizes the logic of enriching spans with domain-specific attributes, handling
- * null values and span validation automatically.
+ * <p>This class centralizes the logic of enriching spans with domain-specific attributes and
+ * events, handling null values and span validation automatically.
  *
  * <p>Example usage:
  *
  * <pre>{@code
- * // In use case
- * BillIntent intent = repository.findById(intentId);
- * SpanWrap.addAttributes(intent.attributes());
+ * // In adapter
+ * Faas faas = repository.findByUserId(userId);
+ * SpanWrap.addAttributes(faas.attributes());
+ *
+ * // Adding events
+ * SpanWrap.addEvent("validation.completed", Map.of("status", "success"));
  * }</pre>
  *
  * @see TelemetryEvent
  * @see AttributeName
  */
+@Slf4j
 public final class SpanWrap {
-
-  private static final Logger log = LoggerFactory.getLogger(SpanWrap.class);
 
   private SpanWrap() {
     throw new UnsupportedOperationException(
@@ -42,8 +45,8 @@ public final class SpanWrap {
    * <p>Example usage:
    *
    * <pre>{@code
-   * BillIntent intent = repository.findById(intentId);
-   * SpanWrap.addAttributes(intent); // Direct usage with TelemetryEvent
+   * Faas faas = repository.findByUserId(userId);
+   * SpanWrap.addAttributes(faas); // Direct usage with TelemetryEvent
    * }</pre>
    *
    * @param event the telemetry event containing span attributes. If null, the operation is skipped.
@@ -63,7 +66,7 @@ public final class SpanWrap {
    *
    * <ul>
    *   <li>Validates that a span context is active and valid
-   *   <li>Filters out null or blank values automatically
+   *   <li>Filters out null values automatically
    *   <li>Sets each attribute on the current span
    * </ul>
    *
@@ -78,16 +81,15 @@ public final class SpanWrap {
     }
 
     try {
-      Span currentSpan = Span.current();
+      Span currentSpan = getCurrentValidSpan();
 
-      if (currentSpan == null || !currentSpan.getSpanContext().isValid()) {
-        log.warn("No valid span context available to add attributes");
+      if (currentSpan == null) {
         return;
       }
 
       attributes.forEach(
           (key, value) -> {
-            if (isNotBlank(key) && isNotBlank(value)) {
+            if (StringUtils.isNotBlank(key) && StringUtils.isNotBlank(value)) {
               currentSpan.setAttribute(key, value);
             }
           });
@@ -97,7 +99,154 @@ public final class SpanWrap {
     }
   }
 
-  private static boolean isNotBlank(String str) {
-    return str != null && !str.trim().isEmpty();
+  /**
+   * Adds an event to the current OpenTelemetry span with attributes from a TelemetryEvent.
+   *
+   * <p>This method:
+   *
+   * <ul>
+   *   <li>Validates that a span context is active and valid
+   *   <li>Converts TelemetryEvent attributes to OpenTelemetry format
+   *   <li>Filters out blank keys and values automatically
+   *   <li>Adds the event to the current span with the provided attributes
+   * </ul>
+   *
+   * <p>If no valid span context exists, the operation is silently skipped with a warning log.
+   *
+   * <p>Example usage:
+   *
+   * <pre>{@code
+   * TelemetryEvent event = () -> Map.of("status", "success", "amount", "100.00");
+   * SpanWrap.addEvent("payment.completed", event);
+   * }</pre>
+   *
+   * @param eventName the name of the event to add to the span
+   * @param event the telemetry event containing attributes. If null, no event is added.
+   * @see #addEvent(String, Map)
+   */
+  public static void addEvent(String eventName, TelemetryEvent event) {
+    if (event == null) {
+      return;
+    }
+    addEvent(eventName, event.attributes());
+  }
+
+  /**
+   * Adds an event to the current OpenTelemetry span with custom attributes.
+   *
+   * <p>This method:
+   *
+   * <ul>
+   *   <li>Validates that a span context is active and valid
+   *   <li>Filters out blank keys and values automatically
+   *   <li>Adds the event to the current span with the provided attributes
+   * </ul>
+   *
+   * <p>If no valid span context exists, the operation is silently skipped with a warning log.
+   *
+   * <p>Example usage:
+   *
+   * <pre>{@code
+   * Map<String, String> attributes = Map.of(
+   *     "validation.type", "barcode",
+   *     "validation.status", "success"
+   * );
+   * SpanWrap.addEvent("validation.completed", attributes);
+   * }</pre>
+   *
+   * @param eventName the name of the event to add to the span. If blank, no event is added.
+   * @param attributes map of attribute key-value pairs to add to the event. Null or blank keys and
+   *     values will be skipped.
+   */
+  public static void addEvent(String eventName, Map<String, String> attributes) {
+    if (StringUtils.isBlank(eventName)) {
+      log.warn("Event name cannot be blank");
+      return;
+    }
+
+    try {
+      Span currentSpan = getCurrentValidSpan();
+
+      if (currentSpan == null) {
+        return;
+      }
+
+      if (attributes == null || attributes.isEmpty()) {
+        currentSpan.addEvent(eventName);
+        return;
+      }
+
+      AttributesBuilder attributesBuilder = Attributes.builder();
+      attributes.forEach(
+          (key, value) -> {
+            if (StringUtils.isNotBlank(key) && StringUtils.isNotBlank(value)) {
+              attributesBuilder.put(key, value);
+            }
+          });
+
+      currentSpan.addEvent(eventName, attributesBuilder.build());
+
+    } catch (Exception e) {
+      log.error("Error adding event to span", e);
+    }
+  }
+
+  /**
+   * Gets the trace ID from the current OpenTelemetry span.
+   *
+   * <p>This method safely retrieves the trace ID from the current span context. If no valid span
+   * context exists, it returns null and logs a warning.
+   *
+   * <p>Example usage:
+   *
+   * <pre>{@code
+   * String traceId = SpanWrap.getTraceId();
+   * if (traceId != null) {
+   *     log.info("Processing request with trace ID: {}", traceId);
+   * }
+   * }</pre>
+   *
+   * @return the trace ID of the current span, or null if no valid span context exists
+   */
+  public static String getTraceId() {
+    try {
+      Span currentSpan = getCurrentValidSpan();
+
+      if (currentSpan == null) {
+        return null;
+      }
+
+      return currentSpan.getSpanContext().getTraceId();
+
+    } catch (Exception e) {
+      log.error("Error getting trace ID from span", e);
+      return null;
+    }
+  }
+
+  /**
+   * Gets the current valid OpenTelemetry span.
+   *
+   * <p>This method encapsulates the logic of obtaining and validating the current span:
+   *
+   * <ul>
+   *   <li>Obtains the current span via {@link Span#current()}
+   *   <li>Validates that the span is not null
+   *   <li>Validates that the span context is valid
+   * </ul>
+   *
+   * <p>If the span is invalid or null, a warning is logged and null is returned.
+   *
+   * @return the current valid span, or null if no valid span context exists
+   */
+  private static Span getCurrentValidSpan() {
+    Span currentSpan = Span.current();
+
+    if (currentSpan == null || !currentSpan.getSpanContext().isValid()) {
+      log.warn("No valid span context available");
+      return null;
+    }
+
+    return currentSpan;
   }
 }

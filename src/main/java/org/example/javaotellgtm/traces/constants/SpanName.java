@@ -19,17 +19,25 @@ package org.example.javaotellgtm.traces.constants;
  */
 public final class SpanName {
   // ============================================================
-  // Bill Intent Operations
+  // Order Operations
   // Following OpenTelemetry semantic conventions: namespace.operation.detail
   // ============================================================
 
-  public static final String INTENT_CREATE_BARCODE = "bill_intent.create.barcode";
-  public static final String INTENT_CREATE_DEBT = "bill_intent.create.debt";
-  public static final String INTENT_CREATE_PRODUCT = "bill_intent.create.product";
-  public static final String INTENT_PATCH_PARAMETER = "bill_intent.patch.parameter";
+  public static final String ORDER_CREATE = "order.create";
+  public static final String ORDER_FETCH = "order.fetch";
+  public static final String ORDER_LIST_ALL = "order.list.all";
+  public static final String ORDER_LIST_BY_CUSTOMER = "order.list.by_customer";
+  public static final String ORDER_UPDATE_STATUS = "order.update.status";
+  public static final String ORDER_CANCEL = "order.cancel";
 
-  public static final String INTENT_KVS_SAVE = "bill_intent.save.kvs";
-  public static final String INTENT_KVS_GET = "bill_intent.get.kvs";
+  // ============================================================
+  // External API Operations
+  // ============================================================
+
+  public static final String EXTERNAL_API_GET_POST_WITH_AUTHOR = "external_api.get.post_with_author";
+  public static final String EXTERNAL_API_GET_USER_POSTS = "external_api.get.user_posts";
+  public static final String EXTERNAL_API_LIST_POSTS = "external_api.list.posts";
+  public static final String EXTERNAL_API_LIST_USERS = "external_api.list.users";
 
   private SpanName() {
     throw new UnsupportedOperationException("SpanName is a utility class and cannot be instantiated");

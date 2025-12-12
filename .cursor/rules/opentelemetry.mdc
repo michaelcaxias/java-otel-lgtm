@@ -1,0 +1,560 @@
+---
+description: Applying Opentelemetry / Instrumentation / Telemetry
+globs:
+  - "**/o11y/**/*.java"
+  - "**/observability/**/*.java"
+  - "**/usecase/**/*.java"
+  - "**/usecases/**/*.java"
+  - "**/SpanName.java"
+  - "**/AttributeName.java"
+  - "**/TraceSpan.java"
+  - "**/SpanAttribute.java"
+  - "**/SpanWrap.java"
+  - "**/TelemetryEvent.java"
+alwaysApply: false
+---
+
+# OpenTelemetry Observability Rules
+
+## 1. Span Naming Conventions
+
+### ✅ ALWAYS Follow OpenTelemetry Semantic Conventions
+
+Span names MUST follow this hierarchical pattern:
+- Format: `{namespace}.{operation}.{detail}` (use dots, not spaces)
+- Use **snake_case** for multi-word components
+- Be **concise** but descriptive
+- Use **verbs** for operations
+- Keep **low cardinality** (no dynamic values like IDs, timestamps)
+
+**Examples:**
+```java
+// ✅ CORRECT
+public static final String INTENT_CREATE_BARCODE = "bill_intent.create.barcode";
+public static final String FEATURE_FLAG_EVALUATE = "feature_flag.evaluate";
+public static final String INTENT_FETCH = "bill_intent.fetch";
+public static final String VALIDATE_BARCODE = "validation.validate.barcode";
+
+// ❌ INCORRECT - Uses spaces instead of dots
+"create barcode intent"
+
+// ❌ INCORRECT - Too verbose
+"create barcode intent for user in site"
+
+// ❌ INCORRECT - Contains dynamic values
+"bill_intent.create.123456"
+```
+
+### Span Name Patterns by Operation Type
+
+| Operation | Pattern | Example |
+|-----------|---------|---------|
+| Create | `{domain}.create.{type}` | `bill_intent.create.barcode` |
+| Fetch | `{domain}.fetch.{resource}` | `bill_intent.fetch` |
+| Update | `{domain}.update.{resource}` | `bill_intent.patch` |
+| Validation | `{domain}.validate.{type}` | `validation.validate.barcode` |
+| Evaluation | `{domain}.evaluate.{what}` | `feature_flag.evaluate` |
+| Gateway | `{domain}.{operation}.{resource}` | `gateway.get.utility` |
+
+### 📍 Where to Define Span Names
+
+- **ALWAYS** define span names as constants in `SpanName.java`
+- **NEVER** use hardcoded strings in `@TraceSpan` annotations
+- Group related operations with comments
+
+```java
+// ✅ CORRECT
+public final class SpanName {
+  // ============================================================
+  // Bill Intent Operations
+  // Following OpenTelemetry semantic conventions: namespace.operation.detail
+  // ============================================================
+
+  public static final String INTENT_CREATE_BARCODE = "bill_intent.create.barcode";
+  public static final String INTENT_CREATE_PRODUCT = "bill_intent.create.product";
+  public static final String INTENT_FETCH = "bill_intent.fetch";
+
+  // ============================================================
+  // Validation Operations
+  // ============================================================
+
+  public static final String VALIDATE_BARCODE = "validation.validate.barcode";
+}
+
+// Usage
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(String barcode) { ... }
+```
+
+---
+
+## 2. Attribute Naming Conventions
+
+### ✅ Semantic Conventions for Attributes
+
+Attributes MUST follow OpenTelemetry semantic conventions:
+- Format: `{namespace}.{attribute}` (use dots)
+- Use **snake_case** for multi-word attributes
+- Be **specific** and **descriptive**
+- Keep **low cardinality** (avoid high-cardinality values like timestamps)
+
+**Standard Namespaces:**
+- `user.*` - User-related attributes
+- `http.*` - HTTP-related attributes
+- `db.*` - Database-related attributes
+- `messaging.*` - Messaging-related attributes
+- `feature_flag.*` or `ff.*` - Feature flag attributes
+- `bill_intent.*` - Bill intent specific attributes (wallet-sp-bill-intent)
+- `validation.*` - Validation attributes
+
+**Examples:**
+```java
+// ✅ CORRECT - Standard OpenTelemetry attributes
+public static final AttributeName USER_ID = new AttributeName("user.id");
+public static final AttributeName HTTP_STATUS_CODE = new AttributeName("http.status_code");
+public static final AttributeName HTTP_METHOD = new AttributeName("http.method");
+
+// ✅ CORRECT - Custom application attributes
+public static final AttributeName INTENT_ID = new AttributeName("bill_intent.id");
+public static final AttributeName INTENT_FLOW = new AttributeName("bill_intent.flow");
+public static final AttributeName INTENT_SITE = new AttributeName("bill_intent.site");
+public static final AttributeName FF_KEY = new AttributeName("feature_flag.key");
+
+// ❌ INCORRECT - No namespace
+"intentId"
+
+// ❌ INCORRECT - Using camelCase instead of snake_case
+"billIntentId"
+
+// ❌ INCORRECT - Too generic
+"id"
+```
+
+### 📍 Where to Define Attribute Names
+
+- **ALWAYS** define attribute names as constants in `AttributeName` enum
+- **NEVER** use hardcoded strings for attribute keys
+- Group attributes by category with comments
+
+```java
+// ✅ CORRECT
+public enum AttributeName {
+  // User attributes
+  USER_ID("user.id"),
+
+  // HTTP attributes
+  HTTP_STATUS_CODE("http.status_code"),
+  HTTP_METHOD("http.method"),
+
+  // Bill Intent attributes
+  INTENT_ID("bill_intent.id"),
+  INTENT_FLOW("bill_intent.flow"),
+  INTENT_SITE("bill_intent.site"),
+
+  // Validation attributes
+  BARCODE("validation.barcode"),
+  DEBT_ID("validation.debt_id"),
+  PRODUCT_ID("validation.product_id");
+
+  private final String key;
+
+  AttributeName(String key) {
+    this.key = key;
+  }
+
+  public String getKey() {
+    return key;
+  }
+}
+```
+
+### 🚨 NEVER Add PII or Sensitive Data as Attributes
+
+**PII (Personally Identifiable Information) MUST NEVER be added as span attributes!**
+
+This includes but is not limited to:
+
+#### ❌ Personal Documents
+- CPF (Brazilian individual tax ID)
+- CNPJ (Brazilian company tax ID)
+- RG, CNH (Brazilian ID cards)
+- Passport numbers
+- Social Security Numbers
+- Any government-issued ID
+
+#### ❌ Contact Information
+- Email addresses
+- Phone numbers
+- Physical addresses
+
+#### ❌ Financial Data
+- Credit card numbers (full or partial)
+- Bank account numbers
+- CVV/Security codes
+- Payment references
+- PIX keys
+
+#### ❌ Authentication Data
+- Passwords
+- Tokens
+- API keys
+- Session IDs
+- Refresh tokens
+
+**Why this matters:**
+- 🔒 **Privacy compliance** - LGPD, GDPR, PCI-DSS requirements
+- 🛡️ **Security** - Traces are stored and accessible by many people
+- ⚖️ **Legal** - Violations can result in fines and legal action
+- 🎯 **Best practice** - Observability doesn't need PII to be effective
+
+**Example - What to do instead:**
+
+```java
+// ❌ BAD - Exposing PII
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent process(
+    @SpanAttribute("user.cpf") String cpf,
+    @SpanAttribute("user.email") String email
+) { ... }
+
+// ✅ GOOD - Using anonymized/hashed identifiers
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent process(
+    @SpanAttribute("user.id") String userId,           // Internal ID, not CPF
+    @SpanAttribute("bill_intent.flow") String flow     // Business context
+) { ... }
+```
+
+---
+
+## 3. Cardinality Best Practices
+
+### ⚠️ CRITICAL: Understand Cardinality Rules
+
+**Cardinality rules are DIFFERENT for span names vs attributes:**
+
+#### 🔴 Span Names: MUST have LOW cardinality (STRICT)
+- **NEVER** include dynamic values (IDs, timestamps, etc.) in span names
+- Span names are used for grouping and aggregation
+- High cardinality = impossible to aggregate and analyze
+
+```java
+// ❌ BAD - Dynamic values in span name
+@TraceSpan("bill_intent.create." + userId)           // ❌ NEVER
+@TraceSpan("intent.process." + intentId)             // ❌ NEVER
+
+// ✅ GOOD - Static span names
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)           // ✅ Always the same
+@TraceSpan(SpanName.INTENT_FETCH)                    // ✅ Always the same
+```
+
+#### 🟡 Attributes: CAN have HIGH cardinality (FLEXIBLE, but be conscious)
+- **Attributes are meant for filtering and debugging** - they CAN have unique values
+- User IDs, intent IDs, transaction IDs are **VALID and EXPECTED** as attributes
+- Be conscious of the trade-offs (storage, query performance)
+- Add attributes that help with troubleshooting
+
+```java
+// ✅ GOOD - High cardinality attributes are OK and useful
+SpanWrap.addAttributes(Map.of(
+    AttributeName.USER_ID.getKey(), userId,                    // ✅ Unique per user - GOOD
+    AttributeName.INTENT_ID.getKey(), intentId,                // ✅ Unique per intent - GOOD
+    AttributeName.INTENT_SITE.getKey(), "MLB",                 // ✅ Low cardinality - GOOD
+    AttributeName.INTENT_FLOW.getKey(), "barcode"              // ✅ Low cardinality - GOOD
+));
+```
+
+---
+
+## 4. SpanKind Usage
+
+### ⚠️ IMPORTANT: Most spans are auto-instrumented by Fury
+
+**DO NOT** add `@TraceSpan` for operations already instrumented:
+
+| SpanKind | When to Use | Instrumentation | Action |
+|----------|-------------|-----------------|--------|
+| `SERVER` | REST endpoints receiving HTTP requests | ⚡ **Automatic** (Fury) | ❌ Don't add `@TraceSpan` |
+| `CLIENT` | HTTP calls to external services/APIs | ⚡ **Automatic** (Fury) | ❌ Don't add `@TraceSpan` |
+| `PRODUCER` | Publishing messages (Kafka, BigQueue) | ⚡ **Automatic** (Fury) | ❌ Don't add `@TraceSpan` |
+| `CONSUMER` | Consuming messages (Kafka, BigQueue) | ⚡ **Automatic** (Fury) | ❌ Don't add `@TraceSpan` |
+| `INTERNAL` | Use cases, validators, internal logic | ✋ **Manual** | ✅ **Use `@TraceSpan`** |
+
+### ✅ When to Use @TraceSpan
+
+**ONLY** use `@TraceSpan` for **internal operations**:
+
+```java
+// ✅ CORRECT - Use case (INTERNAL operation)
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(String barcode) {
+    // Internal business logic
+}
+
+// ✅ CORRECT - Validator (INTERNAL operation)
+@TraceSpan(SpanName.VALIDATE_BARCODE)
+public boolean validateRules(String barcode) {
+    // Internal validation logic
+}
+
+// ❌ INCORRECT - Controller already auto-instrumented
+@TraceSpan(value = "GET /api/intents", kind = SpanKind.SERVER)  // ❌ DON'T DO THIS
+@GetMapping("/api/intents")
+public ResponseEntity<List<BillIntent>> getIntents() {
+    // Fury already creates a SERVER span
+}
+
+// ❌ INCORRECT - HTTP client already auto-instrumented
+@TraceSpan(value = "call checking API", kind = SpanKind.CLIENT)  // ❌ DON'T DO THIS
+public ValidationResult validate(String barcode) {
+    return checkingClient.validate(barcode);  // Fury already creates a CLIENT span
+}
+```
+
+---
+
+## 5. @TraceSpan Best Practices
+
+### ✅ DO
+
+```java
+// ✅ Use SpanName constants
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(String barcode) { ... }
+
+// ✅ Omit 'kind' parameter (defaults to INTERNAL)
+@TraceSpan(SpanName.INTENT_FETCH)
+public BillIntent fetch(String intentId) { ... }
+
+// ✅ Let exceptions be captured automatically
+@TraceSpan(SpanName.INTENT_PATCH)
+public BillIntent patch(String intentId, SubmittedParameter param) {
+    // No try-catch needed - @TraceSpan handles it
+    return updateIntent(intentId, param);
+}
+```
+
+### ❌ DON'T
+
+```java
+// ❌ Hardcoded span name
+@TraceSpan("create intent")
+public BillIntent createIntent(String barcode) { ... }
+
+// ❌ Using SERVER/CLIENT kind manually (already auto-instrumented)
+@TraceSpan(value = "endpoint", kind = SpanKind.SERVER)
+@GetMapping("/api/intents")
+public ResponseEntity<BillIntent> getIntent() { ... }
+
+// ❌ Creating spans in high-volume loops
+public void processItems(List<Item> items) {
+    for (Item item : items) {
+        @TraceSpan  // ❌ DON'T - Creates too many spans
+        processItem(item);
+    }
+}
+```
+
+---
+
+## 6. @SpanAttribute Best Practices
+
+### ✅ DO
+
+```java
+// ✅ Use for IDs - Essential for filtering and debugging (high cardinality is OK!)
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(
+    @SpanAttribute("bill_intent.id") String intentId,     // ✅ High cardinality - GOOD
+    @SpanAttribute("user.id") String userId                // ✅ High cardinality - GOOD
+) { ... }
+
+// ✅ Use for enum/category values (low cardinality)
+@TraceSpan(SpanName.INTENT_PATCH)
+public BillIntent patch(
+    @SpanAttribute("bill_intent.flow") String flow,       // "barcode", "debt", "product"
+    @SpanAttribute("bill_intent.site") String site         // "MLB", "MLA", "MLM"
+) { ... }
+
+// ✅ Use without value for TelemetryEvent objects
+@TraceSpan(SpanName.INTENT_PATCH)
+public void patch(@SpanAttribute BillIntent intent) {
+    // BillIntent implements TelemetryEvent - attributes extracted automatically
+}
+```
+
+### ❌ DON'T
+
+```java
+// ❌ Sensitive data (passwords, tokens, keys)
+@TraceSpan(SpanName.USER_AUTHENTICATE)
+public User authenticate(
+    @SpanAttribute("user.password") String password,  // ❌ NEVER
+    @SpanAttribute("auth.token") String token         // ❌ NEVER
+) { ... }
+
+// ❌ PII - Personally Identifiable Information
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent process(
+    @SpanAttribute("user.cpf") String cpf,                    // ❌ NEVER - Brazilian CPF
+    @SpanAttribute("user.email") String email,                // ❌ NEVER - Email address
+    @SpanAttribute("user.phone") String phone                 // ❌ NEVER - Phone number
+) { ... }
+```
+
+---
+
+## 7. SpanWrap Best Practices
+
+### 🎯 Prefer @SpanAttribute over SpanWrap for Domain Objects
+
+**When you have control over the object (application domain objects), prefer using `@SpanAttribute` with `TelemetryEvent` instead of manual instrumentation with `SpanWrap`.**
+
+```java
+// ❌ AVOID - Manual instrumentation for domain objects you control
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(CreateBarcodeIntentRequest request) {
+    SpanWrap.addAttributes(Map.of(
+        AttributeName.USER_ID.getKey(), request.getUserId(),
+        AttributeName.INTENT_SITE.getKey(), request.getSite()
+    ));
+    // ...
+}
+
+// ✅ PREFER - Declarative instrumentation with @SpanAttribute + TelemetryEvent
+public record BillIntent(...) implements TelemetryEvent {
+    @Override
+    public Map<String, String> attributes() {
+        return Map.of(
+            AttributeName.INTENT_ID.getKey(), id,
+            AttributeName.INTENT_SITE.getKey(), site.name()
+        );
+    }
+}
+
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent createIntent(@SpanAttribute BillIntent intent) {
+    // Attributes are automatically extracted - cleaner and more maintainable!
+    // ...
+}
+```
+
+### ✅ DO
+
+```java
+// ✅ Add runtime attributes (not available at method entry)
+@TraceSpan(SpanName.INTENT_CREATE_BARCODE)
+public BillIntent execute(CreateBarcodeIntentRequest request) {
+    final var intent = request.toDomain();
+
+    // These values are computed at runtime, not available as parameters
+    SpanWrap.addAttributes(Map.of(
+        AttributeName.INTENT_FLOW.getKey(), "barcode",
+        AttributeName.INTENT_SITE.getKey(), intent.getSiteName()
+    ));
+
+    return processIntent(intent);
+}
+
+// ✅ Use TelemetryEvent for domain objects
+@TraceSpan(SpanName.INTENT_FETCH)
+public void fetch(String intentId) {
+    BillIntent intent = repository.findById(intentId);
+    SpanWrap.addAttributes(intent);  // Adds all attributes from TelemetryEvent
+}
+```
+
+### ❌ DON'T
+
+```java
+// ❌ Sensitive data & PII (NEVER!)
+SpanWrap.addAttributes(Map.of(
+    "user.password", password,           // ❌ NEVER - Password
+    "auth.token", token,                 // ❌ NEVER - Auth token
+    "user.cpf", cpf,                     // ❌ NEVER - Brazilian CPF
+    "user.email", email                  // ❌ NEVER - Email
+));
+```
+
+---
+
+## 8. TelemetryEvent Pattern
+
+### ✅ When to Implement
+
+Implement `TelemetryEvent` for domain objects that:
+- Are used frequently across the application
+- Contain important business context
+- Need consistent attribute extraction
+
+```java
+// ✅ CORRECT
+public class BillIntent implements TelemetryEvent {
+    private String id;
+    private Site site;
+    private BillIntentFlow flow;
+
+    @Override
+    public Map<String, String> attributes() {
+        Map<String, String> attrs = new HashMap<>();
+        if (id != null) attrs.put(AttributeName.INTENT_ID.getKey(), id);
+        if (site != null) attrs.put(AttributeName.INTENT_SITE.getKey(), site.name());
+        if (flow != null) attrs.put(AttributeName.INTENT_FLOW.getKey(), flow.name().toLowerCase());
+        return attrs;
+    }
+}
+
+// Usage
+SpanWrap.addAttributes(billIntent);  // Automatically adds all attributes
+```
+
+### ❌ Don't Implement For
+
+```java
+// ❌ Objects with sensitive data or PII
+public record AuthCredentials(String password, String token) implements TelemetryEvent {
+    // ❌ Don't expose passwords, tokens, etc.
+}
+
+public record UserData(String cpf, String cnpj, String email) implements TelemetryEvent {
+    // ❌ Don't expose PII (CPF, CNPJ, email, documents, etc.)
+}
+```
+
+---
+
+## 9. Quick Reference
+
+### Decision Matrix
+
+| Scenario | Solution | Example |
+|----------|----------|---------|
+| Instrument use case | `@TraceSpan` | `@TraceSpan(SpanName.INTENT_CREATE_BARCODE)` |
+| Add parameter as attribute | `@SpanAttribute` | `@SpanAttribute("user.id") String userId` |
+| Add runtime attribute | `SpanWrap.addAttributes(Map)` | `SpanWrap.addAttributes(Map.of("user.id", userId))` |
+| Add object attributes | `SpanWrap.addAttributes(TelemetryEvent)` | `SpanWrap.addAttributes(intent)` |
+| Instrument REST endpoint | ❌ Nothing | Already auto-instrumented |
+| Instrument HTTP client | ❌ Nothing | Already auto-instrumented |
+
+### Common Mistakes to Avoid
+
+| ❌ Mistake | ✅ Correct | Note |
+|-----------|----------|------|
+| `@TraceSpan("create intent")` | `@TraceSpan(SpanName.INTENT_CREATE_BARCODE)` | Use constants |
+| `@TraceSpan("create." + intentId)` | `@TraceSpan(SpanName.INTENT_CREATE_BARCODE)` + `@SpanAttribute("bill_intent.id")` | IDs in attributes, NOT span names |
+| `"create intent barcode"` (span name) | `"bill_intent.create.barcode"` | Use dots, not spaces |
+| `"userId"` (attribute name) | `"user.id"` | Use namespace + snake_case |
+| `"intentId"` (attribute name) | `"bill_intent.id"` | Use namespace + snake_case |
+| Adding `@TraceSpan` to REST controllers | Let Fury auto-instrument | Already instrumented |
+| `@SpanAttribute("user.cpf") String cpf` | ❌ NEVER - PII data | Privacy violation |
+| `@SpanAttribute("user.email") String email` | ❌ NEVER - PII data | Privacy violation |
+
+---
+
+## 10. References
+
+- [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/)
+- [OpenTelemetry Java](https://opentelemetry.io/docs/languages/java/)
+- [Fury Tracing Guide](https://furydocs.io/o11y-docs/0.40.0/guide/#/tracing/introduction)
+- Internal: `docs/observability/01-distributed-tracing.md`
+- Internal: `docs/observability/02-quick-reference.md`

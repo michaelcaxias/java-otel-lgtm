@@ -1,8 +1,8 @@
 package org.example.javaotellgtm.traces.aspect;
 
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.annotation.SpanAttribute;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.annotation.TraceSpan;
-import com.mercadolibre.wallet_sp_bill_intent.infrastructure.o11y.traces.contract.TelemetryEvent;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.annotation.TraceSpan;
+import org.example.javaotellgtm.traces.contract.TelemetryEvent;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;

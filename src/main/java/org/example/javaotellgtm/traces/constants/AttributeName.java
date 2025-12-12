@@ -17,30 +17,89 @@ package org.example.javaotellgtm.traces.constants;
  */
 public enum AttributeName {
   // ============================================================
-  // Bill Intent Attributes
+  // User Attributes
+  // Following OpenTelemetry semantic conventions
   // ============================================================
 
-  /** Bill intent identifier. */
-  INTENT_ID("bill_intent.id"),
+  /** User identifier (internal ID, NOT PII). */
+  USER_ID("user.id"),
 
-  /** Bill intent flow (barcode, debt, product). */
-  INTENT_FLOW("bill_intent.flow"),
+  /** Customer identifier (internal ID, NOT PII). */
+  CUSTOMER_ID("customer.id"),
 
-  /** Bill intent provider. */
-  INTENT_PROVIDER("bill_intent.provider"),
-  INTENT_PROVIDER_ID("bill_intent.provider.id"),
+  /** Customer name (for display purposes, not PII). */
+  CUSTOMER_NAME("customer.name"),
 
-  /** Submitted parameter identifier. */
-  PARAMETER_ID("bill_intent.parameter.id"),
+  // ============================================================
+  // Order Attributes
+  // ============================================================
 
-  /** Submitted parameter type (e.g., reference, amount). */
-  PARAMETER_TYPE("bill_intent.parameter.type"),
+  /** Order identifier. */
+  ORDER_ID("order.id"),
 
-  /** Utility Status (e.g., approved, created) . */
-  UTILITY_STATUS("utility.status"),
+  /** Order status (e.g., PENDING, COMPLETED, CANCELLED). */
+  ORDER_STATUS("order.status"),
 
-  /** Utility identifier. */
-  UTILITY_ID("utility.id");
+  /** Order total amount. */
+  ORDER_TOTAL_AMOUNT("order.total_amount"),
+
+  /** Number of items in the order. */
+  ORDER_ITEMS_COUNT("order.items_count"),
+
+  /** Payment method. */
+  ORDER_PAYMENT_METHOD("order.payment_method"),
+
+  /** Number of orders returned in list operations. */
+  ORDERS_COUNT("orders.count"),
+
+  // ============================================================
+  // Order Status Update Attributes
+  // ============================================================
+
+  /** Previous order status. */
+  ORDER_STATUS_OLD("order.status.old"),
+
+  /** New order status. */
+  ORDER_STATUS_NEW("order.status.new"),
+
+  // ============================================================
+  // External API Attributes
+  // ============================================================
+
+  /** External post identifier. */
+  POST_ID("post.id"),
+
+  /** Post title. */
+  POST_TITLE("post.title"),
+
+  /** Post user identifier. */
+  POST_USER_ID("post.user_id"),
+
+  /** External user name. */
+  EXTERNAL_USER_NAME("external.user.name"),
+
+  /** Number of posts returned. */
+  POSTS_COUNT("posts.count"),
+
+  /** Number of users returned. */
+  USERS_COUNT("users.count"),
+
+  // ============================================================
+  // Event Attributes
+  // ============================================================
+
+  /** Event type. */
+  EVENT_TYPE("event.type"),
+
+  // ============================================================
+  // Error Attributes
+  // ============================================================
+
+  /** Error indicator. */
+  ERROR("error"),
+
+  /** Error message. */
+  ERROR_MESSAGE("error.message");
 
   private final String key;
 
