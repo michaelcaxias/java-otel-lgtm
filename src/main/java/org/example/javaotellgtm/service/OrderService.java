@@ -2,17 +2,15 @@ package org.example.javaotellgtm.service;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
 import lombok.RequiredArgsConstructor;
-import lombok.With;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.SpanAttribute;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.dto.CreateOrderRequest;
 import org.example.javaotellgtm.dto.OrderEvent;
 import org.example.javaotellgtm.model.Order;
 import org.example.javaotellgtm.model.OrderStatus;
 import org.example.javaotellgtm.repository.OrderRepository;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.annotation.TraceSpan;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,7 +26,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final MessagePublisher messagePublisher;
 
-    @Traced(value = "create-order", kind = SpanKind.INTERNAL, attributes = {"operation:create"})
+    @TraceSpan(value = "create-order", kind = SpanKind.INTERNAL)
     public Order createOrder(
             @SpanAttribute("customer.id") String customerId,
             @SpanAttribute("customer.name") String customerName,
@@ -95,7 +93,7 @@ public class OrderService {
         return order;
     }
 
-    @Traced(value = "get-order", kind = SpanKind.INTERNAL, attributes = {"operation:read"})
+    @TraceSpan(value = "get-order", kind = SpanKind.INTERNAL)
     public Order getOrder(@SpanAttribute("order.id") String orderId) {
         Span span = Span.current();
 
@@ -113,7 +111,7 @@ public class OrderService {
         return order;
     }
 
-    @Traced()
+    @TraceSpan()
     public List<Order> getAllOrders() {
         Span span = Span.current();
 
@@ -128,7 +126,7 @@ public class OrderService {
         return orders;
     }
 
-    @Traced(value = "list-orders-by-customer", kind = SpanKind.INTERNAL, attributes = {"operation:read"})
+    @TraceSpan(value = "list-orders-by-customer", kind = SpanKind.INTERNAL)
     public List<Order> getOrdersByCustomerId(@SpanAttribute("customer.id") String customerId) {
         Span span = Span.current();
 
@@ -143,7 +141,7 @@ public class OrderService {
         return orders;
     }
 
-    @Traced(value = "update-order-status", kind = SpanKind.INTERNAL, attributes = {"operation:update"})
+    @TraceSpan(value = "update-order-status", kind = SpanKind.INTERNAL)
     public Order updateOrderStatus(
             @SpanAttribute("order.id") String orderId,
             @SpanAttribute("new.status") OrderStatus newStatus) {
@@ -178,7 +176,7 @@ public class OrderService {
         return order;
     }
 
-    @Traced(value = "cancel-order", kind = SpanKind.INTERNAL, attributes = {"operation:cancel"})
+    @TraceSpan(value = "cancel-order", kind = SpanKind.INTERNAL)
     public void cancelOrder(@SpanAttribute("order.id") String orderId) {
         Span span = Span.current();
 

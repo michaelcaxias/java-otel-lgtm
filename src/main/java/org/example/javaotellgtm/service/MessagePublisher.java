@@ -4,10 +4,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.SpanAttribute;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.config.RabbitMQConfig;
 import org.example.javaotellgtm.dto.OrderEvent;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.annotation.TraceSpan;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +18,7 @@ public class MessagePublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Traced(value = "publish-order-event", kind = SpanKind.PRODUCER,
-            attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
+    @TraceSpan(value = "publish-order-event", kind = SpanKind.PRODUCER)
     public void publishOrderEvent(OrderEvent event) {
         Span span = Span.current();
 
@@ -46,8 +45,7 @@ public class MessagePublisher {
         log.info("Event published successfully with automatic context propagation");
     }
 
-    @Traced(value = "publish-notification", kind = SpanKind.PRODUCER,
-            attributes = {"messaging.system:rabbitmq", "messaging.destination_kind:exchange"})
+    @TraceSpan(value = "publish-notification", kind = SpanKind.PRODUCER)
     public void publishNotification(
             @SpanAttribute("notification.email") String email,
             @SpanAttribute("notification.subject") String subject,

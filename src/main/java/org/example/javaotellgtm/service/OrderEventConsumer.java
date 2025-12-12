@@ -4,9 +4,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.config.RabbitMQConfig;
 import org.example.javaotellgtm.dto.OrderEvent;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.annotation.TraceSpan;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
@@ -20,80 +21,48 @@ public class OrderEventConsumer {
     private final MessagePublisher messagePublisher;
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE)
-    @Traced(value = "handle-order-created", kind = SpanKind.CONSUMER,
-            attributes = {"messaging.system:rabbitmq", "messaging.operation:process"})
-    public void handleOrderCreated(OrderEvent event) {
-        Span span = Span.current();
-        span.setAttribute("messaging.source", RabbitMQConfig.ORDER_QUEUE);
-        span.setAttribute("order.id", event.getOrderId());
-        span.setAttribute("event.type", event.getEventType().name());
-        span.setAttribute("customer.email", event.getCustomerEmail());
-
+    @TraceSpan(value = "handle-order-created", kind = SpanKind.CONSUMER)
+    public void handleOrderCreated(@SpanAttribute OrderEvent event) {
         log.info("Processing ORDER_CREATED event for order: {}", event.getOrderId());
-        span.addEvent("Starting order created event processing");
 
-        // Simulate processing time
-        span.addEvent("Simulating order processing");
         simulateProcessing(500);
-        span.addEvent("Order processing simulation completed");
 
-        // Send notification
-        span.addEvent("Sending order confirmation notification");
         messagePublisher.publishNotification(
                 event.getCustomerEmail(),
                 "Order Confirmation",
                 String.format("Your order %s has been received! Total: $%.2f",
                         event.getOrderId(), event.getTotalAmount())
         );
-        span.addEvent("Notification sent successfully");
 
         log.info("Order created event processed successfully");
     }
 
     @RabbitListener(queues = RabbitMQConfig.PAYMENT_QUEUE)
-    @Traced(value = "handle-payment-event", kind = SpanKind.CONSUMER,
-            attributes = {"messaging.system:rabbitmq", "messaging.operation:process"})
+    @TraceSpan(value = "handle-payment-event", kind = SpanKind.CONSUMER)
     public void handlePaymentEvent(OrderEvent event) {
-        Span span = Span.current();
-        span.setAttribute("messaging.source", RabbitMQConfig.PAYMENT_QUEUE);
-        span.setAttribute("order.id", event.getOrderId());
-        span.setAttribute("event.type", event.getEventType().name());
-        span.setAttribute("payment.amount", event.getTotalAmount().toString());
-
         log.info("Processing payment event {} for order: {}",
                 event.getEventType(), event.getOrderId());
-        span.addEvent("Starting payment event processing");
 
-        // Simulate payment processing
-        span.addEvent("Simulating payment processing");
         simulateProcessing(1000);
-        span.addEvent("Payment processing simulation completed");
 
         if (event.getEventType() == OrderEvent.EventType.PAYMENT_PROCESSING) {
             log.info("Payment processing started for order: {}", event.getOrderId());
-            span.addEvent("Payment processing started");
 
             // Simulate payment validation
             boolean paymentSuccess = Math.random() > 0.1; // 90% success rate
 
             if (paymentSuccess) {
-                span.setAttribute("payment.status", "confirmed");
-                span.addEvent("Payment confirmed");
                 log.info("Payment confirmed for order: {}", event.getOrderId());
             } else {
-                span.setAttribute("payment.status", "failed");
-                span.addEvent("Payment failed");
                 log.warn("Payment failed for order: {}", event.getOrderId());
             }
         }
 
-        span.addEvent("Payment event processing completed");
         log.info("Payment event processed successfully");
     }
 
     @RabbitListener(queues = RabbitMQConfig.SHIPPING_QUEUE)
-    @Traced(value = "handle-shipping-event", kind = SpanKind.CONSUMER,
-            attributes = {"messaging.system:rabbitmq", "messaging.operation:process"})
+    @TraceSpan(value = "handle-shipping-event", kind = SpanKind.CONSUMER)
     public void handleShippingEvent(OrderEvent event) {
         Span span = Span.current();
         span.setAttribute("messaging.source", RabbitMQConfig.SHIPPING_QUEUE);
@@ -129,8 +98,7 @@ public class OrderEventConsumer {
     }
 
     @RabbitListener(queues = RabbitMQConfig.NOTIFICATION_QUEUE)
-    @Traced(value = "handle-notification", kind = SpanKind.CONSUMER,
-            attributes = {"messaging.system:rabbitmq", "messaging.operation:process"})
+    @TraceSpan(value = "handle-notification", kind = SpanKind.CONSUMER)
     public void handleNotification(MessagePublisher.EmailNotification notification) {
         Span span = Span.current();
         span.setAttribute("messaging.source", RabbitMQConfig.NOTIFICATION_QUEUE);

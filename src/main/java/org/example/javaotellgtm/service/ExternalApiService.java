@@ -4,11 +4,11 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.javaotellgtm.aop.SpanAttribute;
-import org.example.javaotellgtm.aop.Traced;
 import org.example.javaotellgtm.client.JsonPlaceholderClient;
 import org.example.javaotellgtm.dto.external.JsonPlaceholderPost;
 import org.example.javaotellgtm.dto.external.JsonPlaceholderUser;
+import org.example.javaotellgtm.traces.annotation.SpanAttribute;
+import org.example.javaotellgtm.traces.annotation.TraceSpan;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,19 +28,13 @@ public class ExternalApiService {
 
     private final JsonPlaceholderClient jsonPlaceholderClient;
 
-    /**
-     * Busca informações enriquecidas de um post com dados do autor
-     * Demonstra propagação de contexto através de múltiplas chamadas HTTP
-     */
-    @Traced(value = "get-post-with-author", kind = SpanKind.INTERNAL,
-            attributes = {"operation:read", "source:external-api"})
+    @TraceSpan(value = "get-post-with-author", kind = SpanKind.INTERNAL)
     public EnrichedPost getPostWithAuthor(@SpanAttribute("post.id") Long postId) {
         Span span = Span.current();
 
         log.info("Fetching post {} with author details from external API", postId);
         span.addEvent("Starting external API calls");
 
-        // ✨ Auto-instrumentado! Span CLIENT criado automaticamente
         span.addEvent("Fetching post from JSONPlaceholder");
         JsonPlaceholderPost post = jsonPlaceholderClient.getPostById(postId);
 
@@ -67,8 +61,7 @@ public class ExternalApiService {
     /**
      * Busca todos os posts de um usuário
      */
-    @Traced(value = "get-user-posts", kind = SpanKind.INTERNAL,
-            attributes = {"operation:read", "source:external-api"})
+    @TraceSpan(value = "get-user-posts", kind = SpanKind.INTERNAL)
     public List<JsonPlaceholderPost> getUserPosts(@SpanAttribute("user.id") Long userId) {
         Span span = Span.current();
 
@@ -89,8 +82,7 @@ public class ExternalApiService {
     /**
      * Lista todos os posts disponíveis
      */
-    @Traced(value = "list-all-posts", kind = SpanKind.INTERNAL,
-            attributes = {"operation:read", "source:external-api"})
+    @TraceSpan(value = "list-all-posts", kind = SpanKind.INTERNAL)
     public List<JsonPlaceholderPost> getAllPosts() {
         Span span = Span.current();
 
@@ -111,8 +103,7 @@ public class ExternalApiService {
     /**
      * Lista todos os usuários disponíveis
      */
-    @Traced(value = "list-all-users", kind = SpanKind.INTERNAL,
-            attributes = {"operation:read", "source:external-api"})
+    @TraceSpan(value = "list-all-users", kind = SpanKind.INTERNAL)
     public List<JsonPlaceholderUser> getAllUsers() {
         Span span = Span.current();
 
